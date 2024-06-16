@@ -1,42 +1,45 @@
+#include "cds/data_stats.h"
+
 #include <cuda_runtime.h>
 #include <device_launch_parameters.h>
 #include <iostream>
 #include <vector>
 
-#include "cds/data_stats.h"
-
 using namespace std;
 
-__global__ void calculate_totals(const float* data, const size_t grid_width, const size_t grid_height, float* totals) {
+__global__ void calculate_totals(const float* data, const size_t record_count, const size_t field_count, float* totals) {
     extern __shared__ float sdata[];
 
     const unsigned int global_idx_x = blockIdx.x * blockDim.x + threadIdx.x;
     const unsigned int global_idx_y = blockIdx.y * blockDim.y + threadIdx.y;
+    const unsigned int local_idx = threadIdx.x;
 
     sdata[threadIdx.x] = 0.0f;
     __syncthreads();
 
-    if (global_idx_x < grid_width && global_idx_y < grid_height) {
-        sdata[threadIdx.x] = data[global_idx_x * grid_height + global_idx_y];
+    float val = FP_NAN;
+    if (global_idx_x < record_count && global_idx_y < field_count) {
+        val = data[global_idx_x * field_count + global_idx_y];
+        sdata[local_idx] = val;
     } else {
-        sdata[threadIdx.x] = 0.0f;
+        return;
     }
-
     __syncthreads();
 
     for (unsigned int s = blockDim.x / 2; s > 0; s >>= 1) {
-        if (threadIdx.x < s) {
-            sdata[threadIdx.x] += sdata[threadIdx.x + s];
+        if (local_idx < s) {
+            sdata[local_idx] += sdata[local_idx + s];
         }
         __syncthreads();
     }
 
-    if (threadIdx.x == 0) {
-        atomicAdd(&totals[blockIdx.y], sdata[0]);
+    if (local_idx == 0) {
+        atomicAdd(&totals[global_idx_y], sdata[0]);
     }
 }
 
-__global__ void calculate_stddevs(const float* data, const size_t grid_width, const size_t grid_height, const size_t record_count, const float* means, float* std_devs) {
+__global__ void calculate_means_stddevs(const float* data, const size_t record_count, const size_t field_count,
+    const float* totals, float* means, float* std_devs) {
     extern __shared__ float sdata[];
 
     const unsigned int global_idx_x = blockIdx.x * blockDim.x + threadIdx.x;
@@ -46,14 +49,21 @@ __global__ void calculate_stddevs(const float* data, const size_t grid_width, co
     sdata[local_idx] = 0.0f;
     __syncthreads();
 
-    if (global_idx_x < grid_width && global_idx_y < grid_height) {
-        const float val = data[global_idx_x * grid_height + global_idx_y];
+    float val = 0.0f;
+    if (global_idx_x < record_count && global_idx_y < field_count) {
+        val = data[global_idx_x * field_count + global_idx_y];
+    }
+    __syncthreads();
+
+    if (local_idx == 0) {
+        means[global_idx_y] = totals[global_idx_y] / static_cast<float>(record_count);
+    }
+    __syncthreads();
+
+    if (global_idx_x < record_count && global_idx_y < field_count) {
         const float diff = val - means[global_idx_y];
         sdata[local_idx] = diff * diff;
-    } else {
-        sdata[local_idx] = 0.0f;
     }
-
     __syncthreads();
 
     for (unsigned int s = blockDim.x / 2; s > 0; s >>= 1) {
@@ -66,14 +76,7 @@ __global__ void calculate_stddevs(const float* data, const size_t grid_width, co
     if (local_idx == 0) {
         atomicAdd(&std_devs[global_idx_y], sdata[0]);
     }
-
-    __syncthreads();
-
-    if (global_idx_x == 0 && local_idx == 0) {
-        std_devs[global_idx_y] = sqrt(std_devs[global_idx_y] / record_count);
-    }
 }
-
 
 static void cleanup(float* data, float* totals, float* means, float* std_devs) {
     if (data != nullptr)
@@ -138,15 +141,29 @@ bool calculate_stats(const vector<char>& data, const size_t field_count, const s
     // TODO: handle case where record count is greater than max threads (implement batching)
     constexpr size_t block_width = 512; // TODO: make configurable
     const size_t block_count = (record_count + block_width - 1) / block_width;
-    const size_t grid_width = block_count * block_width;
     dim3 grid(block_count, field_count);
     dim3 block(block_width, 1);
     size_t shared_mem_size = block_width * sizeof(float);
 
-    calculate_totals<<<grid, block, shared_mem_size>>>(d_data, grid_width, field_count, d_totals);
+    calculate_totals<<<grid, block, shared_mem_size>>>(d_data, record_count, field_count, d_totals);
     err = cudaGetLastError();
     if (err != cudaSuccess) {
         cerr << "Error: calculate_totals failed: " << cudaGetErrorString(err) << endl;
+        cleanup(d_data, d_totals, d_means, d_std_devs);
+        return false;
+    }
+
+    if (cudaDeviceSynchronize() != cudaSuccess) {
+        err = cudaGetLastError();
+        cerr << "Error: cudaDeviceSynchronize failed: " << cudaGetErrorString(err) << endl;
+        cleanup(d_data, d_totals, d_means, d_std_devs);
+        return false;
+    }
+
+    calculate_means_stddevs<<<grid, block, shared_mem_size>>>(d_data, record_count, field_count, d_totals, d_means, d_std_devs);
+    err = cudaGetLastError();
+    if (err != cudaSuccess) {
+        cerr << "Error: calculate_means_stddevs failed: " << cudaGetErrorString(err) << endl;
         cleanup(d_data, d_totals, d_means, d_std_devs);
         return false;
     }
@@ -166,27 +183,8 @@ bool calculate_stats(const vector<char>& data, const size_t field_count, const s
     }
 
     float h_means[field_count];
-    for (size_t i = 0; i < field_count; i++) {
-        h_means[i] = h_totals[i] / static_cast<float>(record_count);
-    }
-
-    if (cudaMemcpy(d_means, h_means, field_count * sizeof(float), cudaMemcpyHostToDevice) != cudaSuccess) {
-        cerr << "Error: cudaMemcpy failed for d_means" << endl;
-        cleanup(d_data, d_totals, d_means, d_std_devs);
-        return false;
-    }
-
-    calculate_stddevs<<<grid, block, shared_mem_size>>>(d_data, grid_width, field_count, record_count, d_means, d_std_devs);
-    err = cudaGetLastError();
-    if (err != cudaSuccess) {
-        cerr << "Error: calculate_stddevs failed: " << cudaGetErrorString(err) << endl;
-        cleanup(d_data, d_totals, d_means, d_std_devs);
-        return false;
-    }
-
-    if (cudaDeviceSynchronize() != cudaSuccess) {
-        err = cudaGetLastError();
-        cerr << "Error: cudaDeviceSynchronize failed: " << cudaGetErrorString(err) << endl;
+    if (cudaMemcpy(h_means, d_means, field_count * sizeof(float), cudaMemcpyDeviceToHost) != cudaSuccess) {
+        cerr << "Error: cudaMemcpy failed for h_means" << endl;
         cleanup(d_data, d_totals, d_means, d_std_devs);
         return false;
     }
@@ -198,9 +196,8 @@ bool calculate_stats(const vector<char>& data, const size_t field_count, const s
         return false;
     }
 
-    for (size_t i = 0; i < field_count; ++i) {
+    for (size_t i = 0; i < field_count; i++)
         h_std_devs[i] = sqrt(h_std_devs[i] / static_cast<float>(record_count));
-    }
 
     cleanup(d_data, d_totals, d_means, d_std_devs);
 
@@ -210,3 +207,4 @@ bool calculate_stats(const vector<char>& data, const size_t field_count, const s
 
     return true;
 }
+
