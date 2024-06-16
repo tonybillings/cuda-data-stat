@@ -1,7 +1,6 @@
 # CUDA Data Stat (WIP)
 
 TODO:
-  * Improve accuracy of std dev calculation
   * Add more stats (min/max/delta_mean/delta_stddev)
   * Implement batching for large datasets
   * Finish directory processing logic and main service loop
