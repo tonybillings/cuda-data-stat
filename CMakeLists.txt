@@ -12,6 +12,7 @@ add_library(cds_lib
         include/cds/cuda_error_check.h
         include/cds/file_metadata.h
         include/cds/data_stats.h
+        include/cds/math.cuh
 )
 
 target_include_directories(cds_lib PUBLIC ${PROJECT_SOURCE_DIR}/include)

@@ -4,6 +4,8 @@
 #include <vector>
 
 struct DataStats {
+    std::vector<float> minimums;
+    std::vector<float> maximums;
     std::vector<float> totals;
     std::vector<float> means;
     std::vector<float> std_devs;

@@ -122,19 +122,29 @@ int main() {
         exit(EXIT_FAILURE);
     } else {
         cout << "Finished analyzing data:" << endl;
+        cout << "\tMinimums: ";
+        for (const auto& min : stats.minimums) {
+            cout << min << ", ";
+        }
+        cout << endl;
+        cout << "\tMaximums: ";
+        for (const auto& max : stats.maximums) {
+            cout << max << ", ";
+        }
+        cout << endl;
         cout << "\tTotals: ";
-        for (const auto& t : stats.totals) {
-            cout << t << ", ";
+        for (const auto& total : stats.totals) {
+            cout << total << ", ";
         }
         cout << endl;
         cout << "\tAverages: ";
-        for (const auto& m : stats.means) {
-            cout << m << ", ";
+        for (const auto& mean : stats.means) {
+            cout << mean << ", ";
         }
         cout << endl;
         cout << "\tStd Devs: ";
-        for (const auto& s : stats.std_devs) {
-            cout << s << ", ";
+        for (const auto& std : stats.std_devs) {
+            cout << std << ", ";
         }
         cout << endl;
     }
