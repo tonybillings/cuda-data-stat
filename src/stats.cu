@@ -230,10 +230,11 @@ bool calculate_stats(const vector<char>& data, const size_t field_count, const s
     dim3 block(block_width, 1);
     size_t shared_mem_size = block_width * sizeof(float);
 
-    cudaStream_t stats_stream;
-    cudaStreamCreate(&stats_stream);
+    cudaStream_t min_stream, max_stream;
+    cudaStreamCreate(&min_stream);
+    cudaStreamCreate(&max_stream);
 
-    calculate_mins<<<grid, block, shared_mem_size, stats_stream>>>(d_data, record_count, field_count, d_mins);
+    calculate_mins<<<grid, block, shared_mem_size, min_stream>>>(d_data, record_count, field_count, d_mins);
     err = cudaGetLastError();
     if (err != cudaSuccess) {
         cerr << "Error: calculate_mins failed: " << cudaGetErrorString(err) << endl;
@@ -241,7 +242,7 @@ bool calculate_stats(const vector<char>& data, const size_t field_count, const s
         return false;
     }
 
-    calculate_maxs<<<grid, block, shared_mem_size, stats_stream>>>(d_data, record_count, field_count, d_maxs);
+    calculate_maxs<<<grid, block, shared_mem_size, max_stream>>>(d_data, record_count, field_count, d_maxs);
     err = cudaGetLastError();
     if (err != cudaSuccess) {
         cerr << "Error: calculate_maxs failed: " << cudaGetErrorString(err) << endl;
@@ -249,7 +250,7 @@ bool calculate_stats(const vector<char>& data, const size_t field_count, const s
         return false;
     }
 
-    calculate_totals<<<grid, block, shared_mem_size, stats_stream>>>(d_data, record_count, field_count, d_totals);
+    calculate_totals<<<grid, block, shared_mem_size>>>(d_data, record_count, field_count, d_totals);
     err = cudaGetLastError();
     if (err != cudaSuccess) {
         cerr << "Error: calculate_totals failed: " << cudaGetErrorString(err) << endl;
