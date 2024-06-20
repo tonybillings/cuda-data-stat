@@ -150,49 +150,51 @@ bool analyzeData(const std::string& workingDir, DataStats& stats) {
  PUBLIC INTERFACE
 *******************************************************************************/
 
-bool ProcessInputFiles() {
-    const string workingDir = getWorkingDirectory();
-    if (!checkDirectory(workingDir)) {
-        return false;
+extern "C" {
+    bool ProcessInputFiles() {
+        const string workingDir = getWorkingDirectory();
+        if (!checkDirectory(workingDir)) {
+            return false;
+        }
+
+        DataStats ds;
+        if (!processInputFiles(workingDir, ds)) {
+            return false;
+        }
+        stats::set(ds);
+
+        return true;
     }
 
-    DataStats ds;
-    if (!processInputFiles(workingDir, ds)) {
-        return false;
+    bool AnalyzeData() {
+        const string workingDir = getWorkingDirectory();
+        if (!checkDirectory(workingDir)) {
+            return false;
+        }
+
+        DataStats ds = stats::get();
+        if (!analyzeData(workingDir, ds)) {
+            return false;
+        }
+        stats::set(ds);
+
+        return true;
     }
-    stats::set(ds);
 
-    return true;
-}
-
-bool AnalyzeData() {
-    const string workingDir = getWorkingDirectory();
-    if (!checkDirectory(workingDir)) {
-        return false;
+    void GetFieldAndRecordCount(int* recordCount, int* fieldCount) {
+        DataStats ds = stats::get();
+        *recordCount = static_cast<int>(ds.recordCount);
+        *fieldCount = static_cast<int>(ds.fieldCount);
     }
 
-    DataStats ds = stats::get();
-    if (!analyzeData(workingDir, ds)) {
-        return false;
-    }
-    stats::set(ds);
-
-    return true;
-}
-
-void GetFieldAndRecordCount(int* recordCount, int* fieldCount) {
-    DataStats ds = stats::get();
-    *recordCount = static_cast<int>(ds.recordCount);
-    *fieldCount = static_cast<int>(ds.fieldCount);
-}
-
-void GetStats(float* minimums, float* maximums, float* totals, float* means, float* stdDevs) {
-    DataStats ds = stats::get();
-    for (int i = 0; i < ds.fieldCount; i++) {
-        minimums[i] = ds.minimums[i];
-        maximums[i] = ds.maximums[i];
-        totals[i] = ds.totals[i];
-        means[i] = ds.means[i];
-        stdDevs[i] = ds.stdDevs[i];
+    void GetStats(float* minimums, float* maximums, float* totals, float* means, float* stdDevs) {
+        DataStats ds = stats::get();
+        for (int i = 0; i < ds.fieldCount; i++) {
+            minimums[i] = ds.minimums[i];
+            maximums[i] = ds.maximums[i];
+            totals[i] = ds.totals[i];
+            means[i] = ds.means[i];
+            stdDevs[i] = ds.stdDevs[i];
+        }
     }
 }
