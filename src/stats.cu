@@ -294,6 +294,7 @@ namespace {
             freeMemory(5, dData, dMins, dMaxs, dTotals, dMeans);
             return false;
         }
+
         return true;
     }
 }
