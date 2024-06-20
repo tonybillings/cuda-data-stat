@@ -310,8 +310,8 @@ bool calculateStats(const char* data, const size_t dataSize, DataStats& stats) {
     }
 
     const auto statsSize = stats.fieldCount * sizeof(float);
-    if (!initializeMemory(dMins, FLT_MAX, statsSize, "dMins") ||
-        !initializeMemory(dMaxs, FLT_MIN, statsSize, "dMaxs") ||
+    if (!initializeMemory(dMins, INT_MAX, statsSize, "dMins") ||
+        !initializeMemory(dMaxs, INT_MIN, statsSize, "dMaxs") ||
         !initializeMemory(dTotals, 0, statsSize, "dTotals") ||
         !initializeMemory(dMeans, 0, statsSize, "dMeans") ||
         !initializeMemory(dStdDevs, 0, statsSize, "dStdDevs")) {
