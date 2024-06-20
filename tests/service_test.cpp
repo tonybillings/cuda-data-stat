@@ -31,6 +31,7 @@ using std::fabs;
 namespace {
     const string defaultWorkDir = "/tmp/.cds";
     constexpr size_t ramDiskSizeMb = 10;
+    constexpr bool isVerbose = true;
 }
 
 /*******************************************************************************
@@ -222,7 +223,7 @@ void testAnalyzeData2() {
 *******************************************************************************/
 
 int main() {
-    setVerbose(true);
+    setVerbose(isVerbose);
 
     testProcessInputFiles();
     testAnalyzeData1();

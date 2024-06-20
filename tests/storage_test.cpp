@@ -25,6 +25,7 @@ using std::string;
 namespace {
     const string defaultWorkDir = "/tmp/.cds";
     constexpr size_t ramDiskSizeMb = 10;
+    constexpr bool isVerbose = true;
 }
 
 /*******************************************************************************
@@ -204,7 +205,7 @@ void testMapAndUnmapData() {
 }
 
 int main() {
-    setVerbose(true);
+    setVerbose(isVerbose);
 
     testCheckDirectory();
     testCreateWorkingDirectory();
