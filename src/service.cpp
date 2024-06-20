@@ -3,112 +3,197 @@
 *******************************************************************************/
 
 #include "cds/service.h"
-#include "cds/cuda_error_check.h"
-#include "cds/file_metadata.h"
+#include "cds/storage.h"
+#include "cds/stats.cuh"
+#include "cds/debug.h"
 
 #include <cstring>
 #include <dirent.h>
-#include <iostream>
 #include <fstream>
 #include <sstream>
-#include <string>
-#include <vector>
-#include <unordered_map>
 
 /*******************************************************************************
  USINGS
 *******************************************************************************/
 
-using namespace std;
+using std::string;
+using std::stringstream;
+using std::ifstream;
+using std::vector;
+using std::invalid_argument;
+
 
 /*******************************************************************************
- SERVICE FUNCTIONS
+ INTERNAL FUNCTIONS
 *******************************************************************************/
 
-bool process_csv_file(const string& file_path, vector<float>& data, size_t& field_count, size_t& record_count) {
-    ifstream file(file_path);
+bool isCsvFile(const string& filename) {
+    const size_t fnSize = filename.size();
+    constexpr size_t extSize = 4;
+    if (const string ext = ".csv"; fnSize >= extSize &&
+        filename.compare(fnSize - extSize, extSize, ext) == 0) {
+        return true;
+    }
+    return false;
+}
+
+bool processCsvFile(const string& filePath, vector<float>& data, DataStats& stats) {
+    ifstream file(filePath);
+    if (!file.is_open()) {
+        ERROR("unable to open file '%s': %s", filePath.c_str(), strerror(errno));
+        return false;
+    }
+
     string line;
-    field_count = 0;
-    record_count = 0;
-    vector<float> file_data;
+    stats.fieldCount = 0;
+    stats.recordCount = 0;
+    vector<float> fileData;
 
     while (getline(file, line)) {
         stringstream ss(line);
         string field;
-        size_t num_fields = 0;
+        size_t numFields = 0;
 
         while (getline(ss, field, ',')) {
             try {
                 float value = stof(field);
-                file_data.push_back(value);
-                num_fields++;
+                fileData.push_back(value);
+                numFields++;
             } catch (const invalid_argument&) {
-                cerr << "Error: invalid data found in CSV file '" << file_path << "'" << endl;
+                ERROR("invalid data found in CSV file '%s'", filePath.c_str());
                 return false;
             }
         }
 
-        if (field_count == 0) {
-            field_count = num_fields;
-        } else if (num_fields != field_count) {
-            cerr << "Error: inconsistent row lengths in CSV file '" << file_path << "'" << endl;
+        if (stats.fieldCount == 0) {
+            stats.fieldCount = numFields;
+        } else if (numFields != stats.fieldCount) {
+            ERROR("inconsistent row lengths in CSV file '%s'", filePath.c_str());
             return false;
         }
 
-        record_count++;
+        stats.recordCount++;
     }
 
-    if (file_data.empty()) {
-        cerr << "Error: empty file '" << file_path << "'" << endl;
+    if (fileData.empty()) {
+        ERROR("empty file '%s'", filePath.c_str());
         return false;
     }
 
-    data = move(file_data);
+    data = move(fileData);
     return true;
 }
 
-bool process_add_directory(const string& add_dir, vector<char>& data, vector<char>& mask, unordered_map<string, unique_ptr<FileMetadata>>& index) {
-    if (DIR* dir; (dir = opendir(add_dir.c_str())) != nullptr) {
+bool processInputFiles(const string& workingDir, DataStats& stats) {
+    const string inputDir = workingDir + "/input";
+    if (!checkDirectory(inputDir)) {
+        return false;
+    }
+
+    if (DIR* dir; (dir = opendir(inputDir.c_str())) != nullptr) {
+        const string dataFile = workingDir + "/data";
         dirent *ent;
         while ((ent = readdir(dir)) != nullptr) {
-            string file_name = ent->d_name;
-            if (file_name == "." || file_name == "..") continue;
+            string filename = ent->d_name;
+            if (filename == "." || filename == ".." || !isCsvFile(filename)) continue;
 
-            // TODO: add support for binary (pre-processed) files
+            string filePath = inputDir;
+            filePath.append("/").append(filename);
 
-            string file_path = add_dir;
-            file_path.append("/").append(file_name);
+            vector<float> fileData;
+            DataStats st;
+            if (!processCsvFile(filePath, fileData, st)) {
+                closedir(dir);
+                return false;
+            }
 
-            vector<float> file_data;
-            size_t field_count, record_count;
-            process_csv_file(file_path, file_data, field_count, record_count);
+            stats.fieldCount = st.fieldCount;
+            stats.recordCount += st.recordCount;
 
-            size_t start_pos = data.size();
-            data.insert(data.end(), reinterpret_cast<char*>(file_data.data()), reinterpret_cast<char*>(file_data.data() + file_data.size()));
-            size_t end_pos = data.size();
-            index[file_name] = make_unique<FileMetadata>(file_path, field_count, record_count, start_pos, end_pos);
-
-            mask.insert(mask.end(), record_count, 1);
+            if (!appendData(dataFile, reinterpret_cast<char*>(fileData.data()), fileData.size() * sizeof(float))) {
+                closedir(dir);
+                return false;
+            }
         }
 
         closedir(dir);
         return true;
     }
 
-    cerr << "Error: could not open directory" << endl;
+    ERROR("unable to open directory '%s': %s", inputDir.c_str(), strerror(errno));
     return false;
 }
 
-bool process_files(const string& mount_point, vector<char>& data, vector<char>& mask, unordered_map<string, unique_ptr<FileMetadata>>& index) {
-    return process_add_directory(mount_point + "/add", data, mask, index);
-    // TODO: process other directories, update mask, use mask to determine which data contributes to stats
-}
+bool analyzeData(const std::string& workingDir, DataStats& stats) {
+    if (!checkDirectory(workingDir)) {
+        return false;
+    }
 
-bool analyze_data(const vector<char>& data, const size_t field_count, DataStats& stats) {
-    if (const size_t record_count = data.size() / (field_count * sizeof(float)); !calculate_stats(data, field_count, record_count, stats)) {
-        cerr << "Error: calculate_stats failed" << endl;
+    const string dataFile = workingDir + "/data";
+    char* data = nullptr;
+    size_t dataSize = 0;
+    if (!mapData(dataFile, data, dataSize)) {
+        return false;
+    }
+
+    if (!calculateStats(data, dataSize, stats)) {
+        return false;
+    }
+
+    if (!unmapData(data, dataSize)) {
         return false;
     }
 
     return true;
+}
+
+/*******************************************************************************
+ PUBLIC INTERFACE
+*******************************************************************************/
+
+bool ProcessInputFiles() {
+    const string workingDir = getWorkingDirectory();
+    if (!checkDirectory(workingDir)) {
+        return false;
+    }
+
+    DataStats ds;
+    if (!processInputFiles(workingDir, ds)) {
+        return false;
+    }
+    stats::set(ds);
+
+    return true;
+}
+
+bool AnalyzeData() {
+    const string workingDir = getWorkingDirectory();
+    if (!checkDirectory(workingDir)) {
+        return false;
+    }
+
+    DataStats ds = stats::get();
+    if (!analyzeData(workingDir, ds)) {
+        return false;
+    }
+    stats::set(ds);
+
+    return true;
+}
+
+void GetFieldAndRecordCount(int* recordCount, int* fieldCount) {
+    DataStats ds = stats::get();
+    *recordCount = static_cast<int>(ds.recordCount);
+    *fieldCount = static_cast<int>(ds.fieldCount);
+}
+
+void GetStats(float* minimums, float* maximums, float* totals, float* means, float* stdDevs) {
+    DataStats ds = stats::get();
+    for (int i = 0; i < ds.fieldCount; i++) {
+        minimums[i] = ds.minimums[i];
+        maximums[i] = ds.maximums[i];
+        totals[i] = ds.totals[i];
+        means[i] = ds.means[i];
+        stdDevs[i] = ds.stdDevs[i];
+    }
 }

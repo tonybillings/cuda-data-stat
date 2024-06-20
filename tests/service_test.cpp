@@ -4,72 +4,217 @@
 
 #include "cds/storage.h"
 #include "cds/service.h"
+#include "cds/debug.h"
 
 #include <iostream>
 #include <fstream>
 #include <string>
 #include <vector>
+#include <cassert>
+#include <cstdio>
+#include <cmath>
 
 /*******************************************************************************
  USINGS
 *******************************************************************************/
 
-using namespace std;
+using std::string;
+using std::ofstream;
+using std::vector;
+using std::to_string;
+using std::fabs;
 
 /*******************************************************************************
- UTIL
+ PARAMETERS
 *******************************************************************************/
 
-void generate_test_file(const string& filename) {
+namespace {
+    const string defaultWorkDir = "/tmp/.cds";
+    constexpr size_t ramDiskSizeMb = 10;
+}
+
+/*******************************************************************************
+ UTILITY FUNCTIONS
+*******************************************************************************/
+
+// TODO: add more test datasets
+
+void generateTestFile1(const string& filename) {
     ofstream file(filename);
     file << "1.1,2.2,3.3\n";
     file << "4.4,5.5,6.6\n";
     file << "7.7,8.8,9.9\n";
-    // TODO: improve test datasets
-    // file << "1.1,2.2,3.3\n";
-    // file << "4.4,5.5,6.6\n";
-    // file << "7.7,8.8,9.9\n";
-    //
-    // file << "1.1,2.2,3.3\n";
-    // file << "4.4,5.5,6.6\n";
-    // file << "7.7,8.8,9.9\n";
-    //
-    // file << "1.1,2.2,3.3\n";
-    // file << "4.4,5.5,6.6\n";
-    // file << "7.7,8.8,9.9\n";
-    //
-    // file << "1.1,2.2,3.3\n";
-    // file << "4.4,5.5,6.6\n";
-    // file << "7.7,8.8,9.9\n";
-    //
-    // file << "1.1,2.2,3.3\n";
-    // file << "4.4,5.5,6.6\n";
-    // file << "7.7,8.8,9.9\n";
-    //
-    // file << "1.1,2.2,3.3\n";
-    // file << "4.4,5.5,6.6\n";
-    // file << "7.7,8.8,9.9\n";
-    //
-    // file << "1.1,2.2,3.3\n";
-    // file << "4.4,5.5,6.6\n";
-    // file << "7.7,8.8,9.9\n";
-    //
-    // file << "1.1,2.2,3.3\n";
-    // file << "4.4,5.5,6.6\n";
-    // file << "7.7,8.8,9.9\n";
-    //
-    // file << "1.1,2.2,3.3\n";
-    // file << "4.4,5.5,6.6\n";
-    // file << "7.7,8.8,9.9\n";
-
     file.close();
-    cout << "Test file created: " << filename << endl;
+    PRINTLN("Test file created: %s", filename.c_str());
 }
 
-void generate_test_files(const string& directory, const int count) {
-    for (int i = 1; i <= count; ++i) {
-        generate_test_file(directory + "/test" + to_string(i) + ".csv");
+void generateTestFile2(const string& filename) {
+    ofstream file(filename);
+    file << "1.1,2.2,3.3\n";
+    file << "4.4,5.5,6.6\n";
+    file << "7.7,8.8,9.9\n";
+
+    file << "1.1,2.2,3.3\n";
+    file << "4.4,5.5,6.6\n";
+    file << "7.7,8.8,9.9\n";
+
+    file << "1.1,2.2,3.3\n";
+    file << "4.4,5.5,6.6\n";
+    file << "7.7,8.8,9.9\n";
+
+    file << "1.1,2.2,3.3\n";
+    file << "4.4,5.5,6.6\n";
+    file << "7.7,8.8,9.9\n";
+
+    file << "1.1,2.2,3.3\n";
+    file << "4.4,5.5,6.6\n";
+    file << "7.7,8.8,9.9\n";
+
+    file << "1.1,2.2,3.3\n";
+    file << "4.4,5.5,6.6\n";
+    file << "7.7,8.8,9.9\n";
+
+    file << "1.1,2.2,3.3\n";
+    file << "4.4,5.5,6.6\n";
+    file << "7.7,8.8,9.9\n";
+
+    file << "1.1,2.2,3.3\n";
+    file << "4.4,5.5,6.6\n";
+    file << "7.7,8.8,9.9\n";
+
+    file << "1.1,2.2,3.3\n";
+    file << "4.4,5.5,6.6\n";
+    file << "7.7,8.8,9.9\n";
+
+    file << "1.1,2.2,3.3\n";
+    file << "4.4,5.5,6.6\n";
+    file << "7.7,8.8,9.9\n";
+
+    file.close();
+    PRINTLN("Test file created: %s", filename.c_str());
+}
+
+void generateTestFiles1(const string& directory, const int count) {
+    for (int i = 1; i <= count; i++) {
+        generateTestFile1(directory + "/input/test" + to_string(i) + ".csv");
     }
+}
+
+void generateTestFiles2(const string& directory, const int count) {
+    for (int i = 1; i <= count; i++) {
+        generateTestFile2(directory + "/input/test" + to_string(i) + ".csv");
+    }
+}
+
+/*******************************************************************************
+ TESTS
+*******************************************************************************/
+
+void testProcessInputFiles() {
+    assert(InitStorage(defaultWorkDir.c_str(), ramDiskSizeMb));
+
+    generateTestFiles1(defaultWorkDir, 3);
+
+    assert(ProcessInputFiles());
+
+    int recordCount, fieldCount;
+    GetFieldAndRecordCount(&recordCount, &fieldCount);
+    assert(recordCount == 9);
+    assert(fieldCount == 3);
+
+    assert(CloseStorage());
+}
+
+void testAnalyzeData1() {
+    assert(InitStorage(defaultWorkDir.c_str(), ramDiskSizeMb));
+
+    generateTestFiles1(defaultWorkDir, 5);
+    setWorkingDirectory(defaultWorkDir);
+
+    assert(ProcessInputFiles());
+    assert(AnalyzeData());
+
+    int recordCount, fieldCount;
+    GetFieldAndRecordCount(&recordCount, &fieldCount);
+
+    assert(recordCount == 15);
+    assert(fieldCount == 3);
+
+    const auto minimums = new float[recordCount];
+    const auto maximums = new float[recordCount];
+    const auto totals = new float[recordCount];
+    const auto means = new float[recordCount];
+    const auto stdDevs = new float[recordCount];
+
+    GetStats(minimums, maximums,totals, means, stdDevs);
+
+    constexpr float epsilon = 0.0001f;
+
+    assert(fabs(minimums[0] - 1.1f) < epsilon);
+    assert(fabs(maximums[0] - 7.7f) < epsilon);
+    assert(fabs(totals[0] - 66.0f) < epsilon);
+    assert(fabs(means[0] - 4.4f) < epsilon);
+    assert(fabs(stdDevs[0] - 2.6944f) < epsilon);
+
+    assert(fabs(minimums[1] - 2.2f) < epsilon);
+    assert(fabs(maximums[1] - 8.8f) < epsilon);
+    assert(fabs(totals[1] - 82.5f) < epsilon);
+    assert(fabs(means[1] - 5.5f) < epsilon);
+    assert(fabs(stdDevs[1] - 2.6944f) < epsilon);
+
+    assert(fabs(minimums[2] - 3.3f) < epsilon);
+    assert(fabs(maximums[2] - 9.9f) < epsilon);
+    assert(fabs(totals[2] - 99.0f) < epsilon);
+    assert(fabs(means[2] - 6.6f) < epsilon);
+    assert(fabs(stdDevs[2] - 2.6944f) < epsilon);
+
+    assert(CloseStorage());
+}
+
+void testAnalyzeData2() {
+    assert(InitStorage(defaultWorkDir.c_str(), ramDiskSizeMb));
+
+    generateTestFiles2(defaultWorkDir, 5);
+    setWorkingDirectory(defaultWorkDir);
+
+    assert(ProcessInputFiles());
+    assert(AnalyzeData());
+
+    int recordCount, fieldCount;
+    GetFieldAndRecordCount(&recordCount, &fieldCount);
+
+    assert(recordCount == 150);
+    assert(fieldCount == 3);
+
+    const auto minimums = new float[recordCount];
+    const auto maximums = new float[recordCount];
+    const auto totals = new float[recordCount];
+    const auto means = new float[recordCount];
+    const auto stdDevs = new float[recordCount];
+
+    GetStats(minimums, maximums,totals, means, stdDevs);
+
+    constexpr float epsilon = 0.0001f;
+
+    assert(fabs(minimums[0] - 1.1f) < epsilon);
+    assert(fabs(maximums[0] - 7.7f) < epsilon);
+    assert(fabs(totals[0] - 660.0f) < epsilon);
+    assert(fabs(means[0] - 4.4f) < epsilon);
+    assert(fabs(stdDevs[0] - 2.6944f) < epsilon);
+
+    assert(fabs(minimums[1] - 2.2f) < epsilon);
+    assert(fabs(maximums[1] - 8.8f) < epsilon);
+    assert(fabs(totals[1] - 825.0f) < epsilon);
+    assert(fabs(means[1] - 5.5f) < epsilon);
+    assert(fabs(stdDevs[1] - 2.6944f) < epsilon);
+
+    assert(fabs(minimums[2] - 3.3f) < epsilon);
+    assert(fabs(maximums[2] - 9.9f) < epsilon);
+    assert(fabs(totals[2] - 990.0f) < epsilon);
+    assert(fabs(means[2] - 6.6f) < epsilon);
+    assert(fabs(stdDevs[2] - 2.6944f) < epsilon);
+
+    assert(CloseStorage());
 }
 
 /*******************************************************************************
@@ -77,79 +222,12 @@ void generate_test_files(const string& directory, const int count) {
 *******************************************************************************/
 
 int main() {
-    const string mount_point = "/mnt/ramdisk_test";
-    constexpr size_t ramdisk_size_mb = 100 * 1024 * 1024;
-    constexpr int test_file_count = 5;
+    setVerbose(true);
 
-    if (!create_ramdisk(mount_point, ramdisk_size_mb)) {
-        cerr << "Failed to create ramdisk." << endl;
-        exit(EXIT_FAILURE);
-    }
+    testProcessInputFiles();
+    testAnalyzeData1();
+    testAnalyzeData2();
 
-    if (!create_directory_structure(mount_point)) {
-        cerr << "Failed to create directory structure." << endl;
-        exit(EXIT_FAILURE);
-    }
-
-    cout << "Filesystem setup complete." << endl;
-
-    const string add_directory = mount_point + "/add";
-    generate_test_files(add_directory, test_file_count);
-
-    vector<char> data;
-    vector<char> mask;
-    unordered_map<string, unique_ptr<FileMetadata>> index;
-    process_files(mount_point, data, mask, index);
-
-    cout << "Index after processing:" << endl;
-    size_t num_fields = 0;
-    for (const auto&[filename, metadata] : index) {
-        num_fields = metadata->field_count;
-        cout << "\t- File: " << filename
-            << ", Start: " << metadata->index_start << ", End: " << metadata->index_end
-            << ", #Fields: " << metadata->field_count << ", #Records: " << metadata->field_count << endl;
-    }
-
-    cout << "Mask after processing:" << endl;
-    for (const auto& m : mask) {
-        cout << static_cast<int>(m) << " ";
-    }
-    cout << endl;
-
-    cout << "Analyzing data..." << endl;
-    if (DataStats stats; !analyze_data(data, num_fields, stats)) {
-        cerr << "Failed to analyze data." << endl;
-        exit(EXIT_FAILURE);
-    } else {
-        cout << "Finished analyzing data:" << endl;
-        cout << "\tMinimums: ";
-        for (const auto& min : stats.minimums) {
-            cout << min << ", ";
-        }
-        cout << endl;
-        cout << "\tMaximums: ";
-        for (const auto& max : stats.maximums) {
-            cout << max << ", ";
-        }
-        cout << endl;
-        cout << "\tTotals: ";
-        for (const auto& total : stats.totals) {
-            cout << total << ", ";
-        }
-        cout << endl;
-        cout << "\tAverages: ";
-        for (const auto& mean : stats.means) {
-            cout << mean << ", ";
-        }
-        cout << endl;
-        cout << "\tStd Devs: ";
-        for (const auto& std : stats.std_devs) {
-            cout << std << ", ";
-        }
-        cout << endl;
-    }
-
-    cleanup(mount_point);
-
-    return 0;
+    printf("All tests completed successfully.\n");
+    exit(EXIT_SUCCESS);
 }

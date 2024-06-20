@@ -1,35 +1,35 @@
-#ifndef MATH_H
-#define MATH_H
+#ifndef MATH_CUH
+#define MATH_CUH
 
 #include <cuda_runtime.h>
 #include <iostream>
 
-__device__ inline float atomicMinFloat(float* val_ptr, const float val) {
-    const auto val_int_ptr = reinterpret_cast<int*>(val_ptr);
-    int actual_val_int = *val_int_ptr;
-    int expected_val_int;
+__device__ inline float atomicMinFloat(float* valPtr, const float val) {
+    const auto valIntPtr = reinterpret_cast<int*>(valPtr);
+    int actualValInt = *valIntPtr;
+    int expectedValInt;
 
     do {
-        expected_val_int = actual_val_int;
-        const float new_val = fminf(val, __int_as_float(expected_val_int));
-        actual_val_int = atomicCAS(val_int_ptr, expected_val_int, __float_as_int(new_val));
-    } while (expected_val_int != actual_val_int);
+        expectedValInt = actualValInt;
+        const float newVal = fminf(val, __int_as_float(expectedValInt));
+        actualValInt = atomicCAS(valIntPtr, expectedValInt, __float_as_int(newVal));
+    } while (expectedValInt != actualValInt);
 
-    return __int_as_float(actual_val_int);
+    return __int_as_float(actualValInt);
 }
 
-__device__ inline float atomicMaxFloat(float* val_ptr, const float val) {
-    const auto val_int_ptr = reinterpret_cast<int*>(val_ptr);
-    int actual_val_int = *val_int_ptr;
-    int expected_val_int;
+__device__ inline float atomicMaxFloat(float* valPtr, const float val) {
+    const auto valIntPtr = reinterpret_cast<int*>(valPtr);
+    int actualValInt = *valIntPtr;
+    int expectedValInt;
 
     do {
-        expected_val_int = actual_val_int;
-        const float new_val = fmaxf(val, __int_as_float(expected_val_int));
-        actual_val_int = atomicCAS(val_int_ptr, expected_val_int, __float_as_int(new_val));
-    } while (expected_val_int != actual_val_int);
+        expectedValInt = actualValInt;
+        const float newVal = fmaxf(val, __int_as_float(expectedValInt));
+        actualValInt = atomicCAS(valIntPtr, expectedValInt, __float_as_int(newVal));
+    } while (expectedValInt != actualValInt);
 
-    return __int_as_float(actual_val_int);
+    return __int_as_float(actualValInt);
 }
 
-#endif // MATH_H
+#endif // MATH_CUH

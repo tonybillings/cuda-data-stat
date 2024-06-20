@@ -1,19 +1,21 @@
 #ifndef SERVICE_H
 #define SERVICE_H
 
-#include "cds/file_metadata.h"
 #include "cds/data_stats.h"
 
 #include <vector>
-#include <unordered_map>
 #include <string>
-#include <memory>
 
-bool process_files(const std::string& mount_point, std::vector<char>& data, std::vector<char>& mask,
-                   std::unordered_map<std::string, std::unique_ptr<FileMetadata>>& index);
+bool isCsvFile(const std::string& filename);
+bool processCsvFile(const std::string& filePath, std::vector<float>& data, DataStats& stats);
+bool processInputFiles(const std::string& workingDir, DataStats& stats);
+bool analyzeData(const std::string& workingDir, DataStats& stats);
 
-bool analyze_data(const std::vector<char>& data, size_t field_count, DataStats& stats);
-
-bool calculate_stats(const std::vector<char>& data, size_t field_count, size_t record_count, DataStats& stats);
+extern "C" {
+    bool ProcessInputFiles();
+    bool AnalyzeData();
+    void GetFieldAndRecordCount(int* recordCount, int* fieldCount);
+    void GetStats(float* minimums, float* maximums, float* totals, float* means, float* stdDevs);
+}
 
 #endif // SERVICE_H

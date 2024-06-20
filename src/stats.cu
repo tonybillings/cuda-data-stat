@@ -1,330 +1,365 @@
+/*******************************************************************************
+ INCLUDES
+*******************************************************************************/
+
+#include "cds/stats.cuh"
 #include "cds/math.cuh"
-#include "cds/data_stats.h"
+#include "cds/debug.h"
 
-#include <cuda_runtime.h>
-#include <device_launch_parameters.h>
-#include <iostream>
-#include <vector>
-#include <c++/13/cfloat>
-#include <c++/13/cstdarg>
+#include <cfloat>
+#include <cstdarg>
 
-using namespace std;
+/*******************************************************************************
+ USINGS
+*******************************************************************************/
 
-__global__ void calculate_mins(const float* data, const size_t record_count, const size_t field_count,
+using std::sqrt;
+
+/*******************************************************************************
+ KERNELS
+*******************************************************************************/
+
+__global__ void calculateMins(const float* data, const size_t recordCount, const size_t fieldCount,
     float* mins) {
-    extern __shared__ float sdata_mins[];
+    extern __shared__ float sdataMins[];
 
-    const unsigned int global_idx_x = blockIdx.x * blockDim.x + threadIdx.x;
-    const unsigned int global_idx_y = blockIdx.y * blockDim.y + threadIdx.y;
-    const unsigned int local_idx = threadIdx.x;
+    const unsigned int globalIdxX = blockIdx.x * blockDim.x + threadIdx.x;
+    const unsigned int globalIdxY = blockIdx.y * blockDim.y + threadIdx.y;
+    const unsigned int localIdx = threadIdx.x;
 
-    sdata_mins[local_idx] = FLT_MAX;
+    sdataMins[localIdx] = FLT_MAX;
     __syncthreads();
 
-    if (global_idx_x < record_count && global_idx_y < field_count) {
-        sdata_mins[local_idx] = data[global_idx_x * field_count + global_idx_y];
+    if (globalIdxX < recordCount && globalIdxY < fieldCount) {
+        sdataMins[localIdx] = data[globalIdxX * fieldCount + globalIdxY];
     } else {
         return;
     }
     __syncthreads();
 
     for (unsigned int s = blockDim.x / 2; s > 0; s >>= 1) {
-        if (local_idx < s) {
-            sdata_mins[local_idx] = fminf(sdata_mins[local_idx], sdata_mins[local_idx + s]);
+        if (localIdx < s) {
+            sdataMins[localIdx] = fminf(sdataMins[localIdx], sdataMins[localIdx + s]);
         }
         __syncthreads();
     }
 
-    if (local_idx == 0) {
-        atomicMinFloat(&mins[global_idx_y], sdata_mins[0]);
+    if (localIdx == 0) {
+        atomicMinFloat(&mins[globalIdxY], sdataMins[0]);
     }
 }
 
-__global__ void calculate_maxs(const float* data, const size_t record_count, const size_t field_count,
+__global__ void calculateMaxs(const float* data, const size_t recordCount, const size_t fieldCount,
     float* maxs) {
-    extern __shared__ float sdata_maxs[];
+    extern __shared__ float sdataMaxs[];
 
-    const unsigned int global_idx_x = blockIdx.x * blockDim.x + threadIdx.x;
-    const unsigned int global_idx_y = blockIdx.y * blockDim.y + threadIdx.y;
-    const unsigned int local_idx = threadIdx.x;
+    const unsigned int globalIdxX = blockIdx.x * blockDim.x + threadIdx.x;
+    const unsigned int globalIdxY = blockIdx.y * blockDim.y + threadIdx.y;
+    const unsigned int localIdx = threadIdx.x;
 
-    sdata_maxs[local_idx] = FLT_MIN;
+    sdataMaxs[localIdx] = FLT_MIN;
     __syncthreads();
 
-    if (global_idx_x < record_count && global_idx_y < field_count) {
-        sdata_maxs[local_idx] = data[global_idx_x * field_count + global_idx_y];
+    if (globalIdxX < recordCount && globalIdxY < fieldCount) {
+        sdataMaxs[localIdx] = data[globalIdxX * fieldCount + globalIdxY];
     } else {
         return;
     }
     __syncthreads();
 
     for (unsigned int s = blockDim.x / 2; s > 0; s >>= 1) {
-        if (local_idx < s) {
-            sdata_maxs[local_idx] = fmaxf(sdata_maxs[local_idx], sdata_maxs[local_idx + s]);
+        if (localIdx < s) {
+            sdataMaxs[localIdx] = fmaxf(sdataMaxs[localIdx], sdataMaxs[localIdx + s]);
         }
         __syncthreads();
     }
 
-    if (local_idx == 0) {
-        atomicMaxFloat(&maxs[global_idx_y], sdata_maxs[0]);
+    if (localIdx == 0) {
+        atomicMaxFloat(&maxs[globalIdxY], sdataMaxs[0]);
     }
 }
 
-__global__ void calculate_totals(const float* data, const size_t record_count, const size_t field_count,
+__global__ void calculateTotals(const float* data, const size_t recordCount, const size_t fieldCount,
     float* totals) {
-    extern __shared__ float sdata_totals[];
+    extern __shared__ float sdataTotals[];
 
-    const unsigned int global_idx_x = blockIdx.x * blockDim.x + threadIdx.x;
-    const unsigned int global_idx_y = blockIdx.y * blockDim.y + threadIdx.y;
-    const unsigned int local_idx = threadIdx.x;
+    const unsigned int globalIdxX = blockIdx.x * blockDim.x + threadIdx.x;
+    const unsigned int globalIdxY = blockIdx.y * blockDim.y + threadIdx.y;
+    const unsigned int localIdx = threadIdx.x;
 
-    sdata_totals[local_idx] = 0.0f;
+    sdataTotals[localIdx] = 0.0f;
     __syncthreads();
 
-    if (global_idx_x < record_count && global_idx_y < field_count) {
-        sdata_totals[local_idx] = data[global_idx_x * field_count + global_idx_y];
+    if (globalIdxX < recordCount && globalIdxY < fieldCount) {
+        sdataTotals[localIdx] = data[globalIdxX * fieldCount + globalIdxY];
     } else {
         return;
     }
     __syncthreads();
 
     for (unsigned int s = blockDim.x / 2; s > 0; s >>= 1) {
-        if (local_idx < s) {
-            sdata_totals[local_idx] += sdata_totals[local_idx + s];
+        if (localIdx < s) {
+            sdataTotals[localIdx] += sdataTotals[localIdx + s];
         }
         __syncthreads();
     }
 
-    if (local_idx == 0) {
-        atomicAdd(&totals[global_idx_y], sdata_totals[0]);
+    if (localIdx == 0) {
+        atomicAdd(&totals[globalIdxY], sdataTotals[0]);
     }
 }
 
-__global__ void calculate_means_stddevs(const float* data, const size_t record_count, const size_t field_count,
-    const float* totals, float* means, float* std_devs) {
-    extern __shared__ float sdata_stddev[];
+__global__ void calculateMeansStddevs(const float* data, const size_t recordCount, const size_t fieldCount,
+    const float* totals, float* means, float* stdDevs) {
+    extern __shared__ float sdataStddev[];
 
-    const unsigned int global_idx_x = blockIdx.x * blockDim.x + threadIdx.x;
-    const unsigned int global_idx_y = blockIdx.y;
-    const unsigned int local_idx = threadIdx.x;
+    const unsigned int globalIdxX = blockIdx.x * blockDim.x + threadIdx.x;
+    const unsigned int globalIdxY = blockIdx.y;
+    const unsigned int localIdx = threadIdx.x;
 
-    sdata_stddev[local_idx] = 0.0f;
+    sdataStddev[localIdx] = 0.0f;
     __syncthreads();
 
     float val = 0.0f;
-    if (global_idx_x < record_count && global_idx_y < field_count) {
-        val = data[global_idx_x * field_count + global_idx_y];
+    if (globalIdxX < recordCount && globalIdxY < fieldCount) {
+        val = data[globalIdxX * fieldCount + globalIdxY];
     }
     __syncthreads();
 
-    if (local_idx == 0) {
-        means[global_idx_y] = totals[global_idx_y] / static_cast<float>(record_count);
+    if (localIdx == 0) {
+        means[globalIdxY] = totals[globalIdxY] / static_cast<float>(recordCount);
     }
     __syncthreads();
 
-    if (global_idx_x < record_count && global_idx_y < field_count) {
-        const float diff = val - means[global_idx_y];
-        sdata_stddev[local_idx] = diff * diff;
+    if (globalIdxX < recordCount && globalIdxY < fieldCount) {
+        const float diff = val - means[globalIdxY];
+        sdataStddev[localIdx] = diff * diff;
     }
     __syncthreads();
 
     for (unsigned int s = blockDim.x / 2; s > 0; s >>= 1) {
-        if (local_idx < s) {
-            sdata_stddev[local_idx] += sdata_stddev[local_idx + s];
+        if (localIdx < s) {
+            sdataStddev[localIdx] += sdataStddev[localIdx + s];
         }
         __syncthreads();
     }
 
-    if (local_idx == 0) {
-        atomicAdd(&std_devs[global_idx_y], sdata_stddev[0]);
+    if (localIdx == 0) {
+        atomicAdd(&stdDevs[globalIdxY], sdataStddev[0]);
     }
 }
 
-static void cleanup(const int count, ...) {
-    va_list args;
-    va_start(args, count);
+/*******************************************************************************
+ KERNEL WRAPPERS
+*******************************************************************************/
 
-    for (int i = 0; i < count; i++) {
-        if (float* device_array = va_arg(args, float*); device_array != nullptr) {
-            cudaFree(device_array);
+namespace {
+    bool runCalculateMins(dim3 grid, dim3 block, size_t sharedMemorySize, cudaStream_t stream, const float* data,
+        const size_t recordCount, const size_t fieldCount, float* mins) {
+            calculateMins<<<grid, block, sharedMemorySize, stream>>>(data, recordCount, fieldCount, mins);
+            if (const cudaError_t err = cudaGetLastError(); err != cudaSuccess) {
+                ERROR("calculateMins failed: %s", cudaGetErrorString(err));
+                return false;
+            }
+            return true;
+    }
+
+    bool runCalculateMaxs(dim3 grid, dim3 block, size_t sharedMemorySize, cudaStream_t stream, const float* data,
+        const size_t recordCount, const size_t fieldCount, float* maxs) {
+            calculateMaxs<<<grid, block, sharedMemorySize, stream>>>(data, recordCount, fieldCount, maxs);
+            if (const cudaError_t err = cudaGetLastError(); err != cudaSuccess) {
+                ERROR("calculateMaxs failed: %s", cudaGetErrorString(err));
+                return false;
+            }
+            return true;
+    }
+
+    bool runCalculateTotals(dim3 grid, dim3 block, size_t sharedMemorySize, cudaStream_t stream, const float* data,
+        const size_t recordCount, const size_t fieldCount, float* totals) {
+            calculateTotals<<<grid, block, sharedMemorySize, stream>>>(data, recordCount, fieldCount, totals);
+            if (const cudaError_t err = cudaGetLastError(); err != cudaSuccess) {
+                ERROR("calculateTotals failed: %s", cudaGetErrorString(err));
+                return false;
+            }
+            return true;
+    }
+
+    bool runCalculateMeansStddevs(dim3 grid, dim3 block, size_t sharedMemorySize, cudaStream_t stream,
+        const float* data, const size_t recordCount, const size_t fieldCount, const float* totals,
+        float* means, float* stdDevs) {
+            calculateMeansStddevs<<<grid, block, sharedMemorySize, stream>>>(data, recordCount, fieldCount, totals, means, stdDevs);
+            if (const cudaError_t err = cudaGetLastError(); err != cudaSuccess) {
+                ERROR("calculateMeansStddevs failed: %s", cudaGetErrorString(err));
+                return false;
+            }
+            return true;
+    }
+}
+
+/*******************************************************************************
+ UTILITY FUNCTIONS
+*******************************************************************************/
+
+namespace {
+    bool allocateMemory(float*& dPtr, const size_t size, const char* name) {
+        if (const cudaError_t err = cudaMalloc(&dPtr, size); err != cudaSuccess) {
+            ERROR("cudaMalloc failed for %s: %s", name, cudaGetErrorString(err));
+            return false;
+        }
+        return true;
+    }
+
+    bool initializeMemory(float* dPtr, const int value, const size_t size, const char* name) {
+        if (const cudaError_t err = cudaMemset(dPtr, value, size); err != cudaSuccess) {
+            ERROR("cudaMemset failed for %s: %s", name, cudaGetErrorString(err));
+            return false;
+        }
+        return true;
+    }
+
+    bool freeMemory(const int count, ...) {
+        va_list args;
+        va_start(args, count);
+
+        for (int i = 0; i < count; i++) {
+            if (float* deviceArray = va_arg(args, float*); deviceArray != nullptr) {
+                if (const cudaError_t err = cudaFree(deviceArray); err != cudaSuccess) {
+                    ERROR("cudaFree failed: %s", cudaGetErrorString(err));
+                    return false;
+                }
+            }
+        }
+
+        va_end(args);
+        return true;
+    }
+
+    bool copyToDevice(float* dPtr, const char* data, const size_t dataSize) {
+        if (const cudaError_t err = cudaMemcpy(dPtr, data, dataSize, cudaMemcpyHostToDevice); err != cudaSuccess) {
+            ERROR("copyToDevice failed for data: %s", cudaGetErrorString(err));
+            return false;
+        }
+        return true;
+    }
+
+    bool copyFromDevice(float* hPtr, const float* dPtr, const size_t size, const char* name) {
+        if (const cudaError_t err = cudaMemcpy(hPtr, dPtr, size, cudaMemcpyDeviceToHost); err != cudaSuccess) {
+            ERROR("copyFromDevice failed for %s: %s", name, cudaGetErrorString(err));
+            return false;
+        }
+        return true;
+    }
+
+    bool synchronizeDevice() {
+        if (const cudaError_t err = cudaDeviceSynchronize(); err != cudaSuccess) {
+            ERROR("cudaDeviceSynchronize failed: %s", cudaGetErrorString(err));
+            return false;
+        }
+        return true;
+    }
+
+    void finishCalculatingStdDevs(const size_t fieldCount, const size_t recordCount, float* hStdDevs) {
+        for (size_t i = 0; i < fieldCount; i++) {
+            hStdDevs[i] = sqrt(hStdDevs[i] / static_cast<float>(recordCount));
         }
     }
 
-    va_end(args);
+    bool allocateMemory(const char* data, const size_t dataSize, const DataStats& stats, float*& dData, float*& dMins, float*& dMaxs, float*& dTotals, float*& dMeans, float*& dStdDevs) {
+        const auto statsSize = stats.fieldCount * sizeof(float);
+
+        if (!allocateMemory(dData, dataSize, "dData")) {
+            return false;
+        }
+        if (!copyToDevice(dData, data, dataSize)) {
+            freeMemory(1, dData);
+            return false;
+        }
+        if (!allocateMemory(dMins, statsSize, "dMins")) {
+            freeMemory(1, dData);
+            return false;
+        }
+        if (!allocateMemory(dMaxs, statsSize, "dMaxs")) {
+            freeMemory(2, dData, dMins);
+            return false;
+        }
+        if (!allocateMemory(dTotals, statsSize, "dTotals")) {
+            freeMemory(3, dData, dMins, dMaxs);
+            return false;
+        }
+        if (!allocateMemory(dMeans, statsSize, "dMeans")) {
+            freeMemory(4, dData, dMins, dMaxs, dTotals);
+            return false;
+        }
+        if (!allocateMemory(dStdDevs, statsSize, "dStdDevs")) {
+            freeMemory(5, dData, dMins, dMaxs, dTotals, dMeans);
+            return false;
+        }
+        return true;
+    }
 }
 
-// TODO: cleanup
-bool calculate_stats(const vector<char>& data, const size_t field_count, const size_t record_count, DataStats& stats) {
-    float *d_data, *d_mins, *d_maxs, *d_totals, *d_means, *d_std_devs;
+/*******************************************************************************
+ INTERNAL FUNCTIONS
+*******************************************************************************/
 
-    if (cudaMalloc(&d_data, data.size()) != cudaSuccess) {
-        cerr << "Error: cudaMalloc failed for d_data" << endl;
-        return false;
-    }
-    if (cudaMemcpy(d_data, data.data(), data.size(), cudaMemcpyHostToDevice) != cudaSuccess) {
-        cerr << "Error: cudaMemcpy failed for d_data" << endl;
-        cleanup(1, d_data);
-        return false;
-    }
-    if (cudaMalloc(&d_mins, field_count * sizeof(float)) != cudaSuccess) {
-        cerr << "Error: cudaMalloc failed for d_mins" << endl;
-        cleanup(1, d_data);
-        return false;
-    }
-    if (cudaMalloc(&d_maxs, field_count * sizeof(float)) != cudaSuccess) {
-        cerr << "Error: cudaMalloc failed for d_maxs" << endl;
-        cleanup(2, d_data, d_mins);
-        return false;
-    }
-    if (cudaMalloc(&d_totals, field_count * sizeof(float)) != cudaSuccess) {
-        cerr << "Error: cudaMalloc failed for d_totals" << endl;
-        cleanup(3, d_data, d_mins, d_maxs);
-        return false;
-    }
-    if (cudaMalloc(&d_means, field_count * sizeof(float)) != cudaSuccess) {
-        cerr << "Error: cudaMalloc failed for d_means" << endl;
-        cleanup(4, d_data, d_mins, d_maxs, d_totals);
-        return false;
-    }
-    if (cudaMalloc(&d_std_devs, field_count * sizeof(float)) != cudaSuccess) {
-        cerr << "Error: cudaMalloc failed for d_std_devs" << endl;
-        cleanup(5, d_data, d_mins, d_maxs, d_totals, d_means);
+bool calculateStats(const char* data, const size_t dataSize, DataStats& stats) {
+    float *dData, *dMins, *dMaxs, *dTotals, *dMeans, *dStdDevs;
+    if (!allocateMemory(data, dataSize, stats, dData, dMins, dMaxs, dTotals, dMeans, dStdDevs)) {
         return false;
     }
 
-    cudaError_t err = cudaMemset(d_mins, FLT_MAX, field_count * sizeof(float));
-    if (err != cudaSuccess) {
-        cerr << "Error: cudaMemset failed for d_mins: " << cudaGetErrorString(err) << endl;
-        cleanup(6, d_data, d_mins, d_maxs, d_totals, d_means, d_std_devs);
-        return false;
-    }
-    err = cudaMemset(d_maxs, FLT_MIN, field_count * sizeof(float));
-    if (err != cudaSuccess) {
-        cerr << "Error: cudaMemset failed for d_maxs: " << cudaGetErrorString(err) << endl;
-        cleanup(6, d_data, d_mins, d_maxs, d_totals, d_means, d_std_devs);
-        return false;
-    }
-    err = cudaMemset(d_totals, 0, field_count * sizeof(float));
-    if (err != cudaSuccess) {
-        cerr << "Error: cudaMemset failed for d_totals: " << cudaGetErrorString(err) << endl;
-        cleanup(6, d_data, d_mins, d_maxs, d_totals, d_means, d_std_devs);
-        return false;
-    }
-    err = cudaMemset(d_means, 0, field_count * sizeof(float));
-    if (err != cudaSuccess) {
-        cerr << "Error: cudaMemset failed for d_means: " << cudaGetErrorString(err) << endl;
-        cleanup(6, d_data, d_mins, d_maxs, d_totals, d_means, d_std_devs);
-        return false;
-    }
-    err = cudaMemset(d_std_devs, 0, field_count * sizeof(float));
-    if (err != cudaSuccess) {
-        cerr << "Error: cudaMemset failed for d_std_devs: " << cudaGetErrorString(err) << endl;
-        cleanup(6, d_data, d_mins, d_maxs, d_totals, d_means, d_std_devs);
-        return false;
+    const auto statsSize = stats.fieldCount * sizeof(float);
+    if (!initializeMemory(dMins, FLT_MAX, statsSize, "dMins") ||
+        !initializeMemory(dMaxs, FLT_MIN, statsSize, "dMaxs") ||
+        !initializeMemory(dTotals, 0, statsSize, "dTotals") ||
+        !initializeMemory(dMeans, 0, statsSize, "dMeans") ||
+        !initializeMemory(dStdDevs, 0, statsSize, "dStdDevs")) {
+            freeMemory(6, dData, dMins, dMaxs, dTotals, dMeans, dStdDevs);
+            return false;
     }
 
     // TODO: handle case where record count is greater than max threads (implement batching)
-    constexpr size_t block_width = 32; // TODO: make configurable
-    const size_t block_count = (record_count + block_width - 1) / block_width;
-    dim3 grid(block_count, field_count);
-    dim3 block(block_width, 1);
-    size_t shared_mem_size = block_width * sizeof(float);
+    constexpr size_t blockWidth = 32; // TODO: make configurable
+    const size_t blockCount = (stats.recordCount + blockWidth - 1) / blockWidth;
+    const dim3 grid(blockCount, stats.fieldCount);
+    constexpr dim3 block(blockWidth, 1);
+    constexpr size_t sharedMemSize = blockWidth * sizeof(float);
 
-    cudaStream_t min_stream, max_stream;
-    cudaStreamCreate(&min_stream);
-    cudaStreamCreate(&max_stream);
+    cudaStream_t minStream, maxStream;
+    cudaStreamCreate(&minStream);
+    cudaStreamCreate(&maxStream);
 
-    calculate_mins<<<grid, block, shared_mem_size, min_stream>>>(d_data, record_count, field_count, d_mins);
-    err = cudaGetLastError();
-    if (err != cudaSuccess) {
-        cerr << "Error: calculate_mins failed: " << cudaGetErrorString(err) << endl;
-        cleanup(6, d_data, d_mins, d_maxs, d_totals, d_means, d_std_devs);
+    if (!runCalculateMins(grid, block, sharedMemSize, minStream, dData, stats.recordCount, stats.fieldCount, dMins) ||
+        !runCalculateMaxs(grid, block, sharedMemSize, maxStream, dData, stats.recordCount, stats.fieldCount, dMaxs) ||
+        !runCalculateTotals(grid, block, sharedMemSize, nullptr, dData, stats.recordCount, stats.fieldCount, dTotals) ||
+        !synchronizeDevice() ||
+        !runCalculateMeansStddevs(grid, block, sharedMemSize, nullptr, dData, stats.recordCount, stats.fieldCount, dTotals, dMeans, dStdDevs) ||
+        !synchronizeDevice()) {
+            freeMemory(6, dData, dMins, dMaxs, dTotals, dMeans, dStdDevs);
+            return false;
+      }
+
+    float hMins[stats.fieldCount], hMaxs[stats.fieldCount];
+    float hTotals[stats.fieldCount], hMeans[stats.fieldCount];
+    float hStdDevs[stats.fieldCount];
+
+    if (!copyFromDevice(hMins, dMins, statsSize, "hMins") ||
+        !copyFromDevice(hMaxs, dMaxs, statsSize, "hMaxs") ||
+        !copyFromDevice(hTotals, dTotals, statsSize, "hTotals") ||
+        !copyFromDevice(hMeans, dMeans, statsSize, "hMeans") ||
+        !copyFromDevice(hStdDevs, dStdDevs, statsSize, "hStdDevs")) {
+        freeMemory(6, dData, dMins, dMaxs, dTotals, dMeans, dStdDevs);
         return false;
     }
 
-    calculate_maxs<<<grid, block, shared_mem_size, max_stream>>>(d_data, record_count, field_count, d_maxs);
-    err = cudaGetLastError();
-    if (err != cudaSuccess) {
-        cerr << "Error: calculate_maxs failed: " << cudaGetErrorString(err) << endl;
-        cleanup(6, d_data, d_mins, d_maxs, d_totals, d_means, d_std_devs);
-        return false;
-    }
+    finishCalculatingStdDevs(stats.fieldCount, stats.recordCount, hStdDevs);
+    freeMemory(6, dData, dMins, dMaxs, dTotals, dMeans, dStdDevs);
 
-    calculate_totals<<<grid, block, shared_mem_size>>>(d_data, record_count, field_count, d_totals);
-    err = cudaGetLastError();
-    if (err != cudaSuccess) {
-        cerr << "Error: calculate_totals failed: " << cudaGetErrorString(err) << endl;
-        cleanup(6, d_data, d_mins, d_maxs, d_totals, d_means, d_std_devs);
-        return false;
-    }
-
-    if (cudaDeviceSynchronize() != cudaSuccess) {
-        err = cudaGetLastError();
-        cerr << "Error: cudaDeviceSynchronize failed: " << cudaGetErrorString(err) << endl;
-        cleanup(6, d_data, d_mins, d_maxs, d_totals, d_means, d_std_devs);
-        return false;
-    }
-
-    calculate_means_stddevs<<<grid, block, shared_mem_size>>>(d_data, record_count, field_count, d_totals, d_means, d_std_devs);
-    err = cudaGetLastError();
-    if (err != cudaSuccess) {
-        cerr << "Error: calculate_means_stddevs failed: " << cudaGetErrorString(err) << endl;
-        cleanup(6, d_data, d_mins, d_maxs, d_totals, d_means, d_std_devs);
-        return false;
-    }
-
-    if (cudaDeviceSynchronize() != cudaSuccess) {
-        err = cudaGetLastError();
-        cerr << "Error: cudaDeviceSynchronize failed: " << cudaGetErrorString(err) << endl;
-        cleanup(6, d_data, d_mins, d_maxs, d_totals, d_means, d_std_devs);
-        return false;
-    }
-
-    float h_mins[field_count];
-    if (cudaMemcpy(h_mins, d_mins, field_count * sizeof(float), cudaMemcpyDeviceToHost) != cudaSuccess) {
-        cerr << "Error: cudaMemcpy failed for h_mins" << endl;
-        cleanup(6, d_data, d_mins, d_maxs, d_totals, d_means, d_std_devs);
-        return false;
-    }
-
-    float h_maxs[field_count];
-    if (cudaMemcpy(h_maxs, d_maxs, field_count * sizeof(float), cudaMemcpyDeviceToHost) != cudaSuccess) {
-        cerr << "Error: cudaMemcpy failed for h_maxs" << endl;
-        cleanup(6, d_data, d_mins, d_maxs, d_totals, d_means, d_std_devs);
-        return false;
-    }
-
-    float h_totals[field_count];
-    if (cudaMemcpy(h_totals, d_totals, field_count * sizeof(float), cudaMemcpyDeviceToHost) != cudaSuccess) {
-        cerr << "Error: cudaMemcpy failed for h_totals" << endl;
-        cleanup(6, d_data, d_mins, d_maxs, d_totals, d_means, d_std_devs);
-        return false;
-    }
-
-    float h_means[field_count];
-    if (cudaMemcpy(h_means, d_means, field_count * sizeof(float), cudaMemcpyDeviceToHost) != cudaSuccess) {
-        cerr << "Error: cudaMemcpy failed for h_means" << endl;
-        cleanup(6, d_data, d_mins, d_maxs, d_totals, d_means, d_std_devs);
-        return false;
-    }
-
-    float h_std_devs[field_count];
-    if (cudaMemcpy(h_std_devs, d_std_devs, field_count * sizeof(float), cudaMemcpyDeviceToHost) != cudaSuccess) {
-        cerr << "Error: cudaMemcpy failed for h_std_devs" << endl;
-        cleanup(6, d_data, d_mins, d_maxs, d_totals, d_means, d_std_devs);
-        return false;
-    }
-
-    for (size_t i = 0; i < field_count; i++)
-        h_std_devs[i] = sqrt(h_std_devs[i] / static_cast<float>(record_count));
-
-    cleanup(6, d_data, d_mins, d_maxs, d_totals, d_means, d_std_devs);
-
-    stats.minimums.insert(stats.minimums.end(), h_mins, h_mins + field_count);
-    stats.maximums.insert(stats.maximums.end(), h_maxs, h_maxs + field_count);
-    stats.totals.insert(stats.totals.end(), h_totals, h_totals + field_count);
-    stats.means.insert(stats.means.end(), h_means, h_means + field_count);
-    stats.std_devs.insert(stats.std_devs.end(), h_std_devs, h_std_devs + field_count);
+    stats.minimums.insert(stats.minimums.end(), hMins, hMins + stats.fieldCount);
+    stats.maximums.insert(stats.maximums.end(), hMaxs, hMaxs + stats.fieldCount);
+    stats.totals.insert(stats.totals.end(), hTotals, hTotals + stats.fieldCount);
+    stats.means.insert(stats.means.end(), hMeans, hMeans + stats.fieldCount);
+    stats.stdDevs.insert(stats.stdDevs.end(), hStdDevs, hStdDevs + stats.fieldCount);
 
     return true;
 }
