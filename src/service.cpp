@@ -187,7 +187,8 @@ extern "C" {
         *fieldCount = static_cast<int>(ds.fieldCount);
     }
 
-    void GetStats(float* minimums, float* maximums, float* totals, float* means, float* stdDevs) {
+    void GetStats(float* minimums, float* maximums, float* totals, float* means, float* stdDevs,
+        float* deltaMinimums, float* deltaMaximums, float* deltaTotals, float* deltaMeans, float* deltaStdDevs) {
         DataStats ds = stats::get();
         for (int i = 0; i < ds.fieldCount; i++) {
             minimums[i] = ds.minimums[i];
@@ -195,6 +196,12 @@ extern "C" {
             totals[i] = ds.totals[i];
             means[i] = ds.means[i];
             stdDevs[i] = ds.stdDevs[i];
+
+            deltaMinimums[i] = ds.deltaMinimums[i];
+            deltaMaximums[i] = ds.deltaMaximums[i];
+            deltaTotals[i] = ds.deltaTotals[i];
+            deltaMeans[i] = ds.deltaMeans[i];
+            deltaStdDevs[i] = ds.deltaStdDevs[i];
         }
     }
 }

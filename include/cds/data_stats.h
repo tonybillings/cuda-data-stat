@@ -6,11 +6,18 @@
 struct DataStats {
     size_t fieldCount = 0;
     size_t recordCount = 0;
+
     std::vector<float> minimums;
     std::vector<float> maximums;
     std::vector<float> totals;
     std::vector<float> means;
     std::vector<float> stdDevs;
+
+    std::vector<float> deltaMinimums;
+    std::vector<float> deltaMaximums;
+    std::vector<float> deltaTotals;
+    std::vector<float> deltaMeans;
+    std::vector<float> deltaStdDevs;
 };
 
 namespace stats {

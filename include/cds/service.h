@@ -15,7 +15,8 @@ extern "C" {
     bool ProcessInputFiles();
     bool AnalyzeData();
     void GetFieldAndRecordCount(int* recordCount, int* fieldCount);
-    void GetStats(float* minimums, float* maximums, float* totals, float* means, float* stdDevs);
+    void GetStats(float* minimums, float* maximums, float* totals, float* means, float* stdDevs,
+        float* deltaMinimums, float* deltaMaximums, float* deltaTotals, float* deltaMeans, float* deltaStdDevs);
 }
 
 #endif // SERVICE_H

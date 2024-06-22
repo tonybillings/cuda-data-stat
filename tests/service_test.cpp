@@ -147,7 +147,14 @@ void testAnalyzeData1() {
     const auto means = new float[recordCount];
     const auto stdDevs = new float[recordCount];
 
-    GetStats(minimums, maximums,totals, means, stdDevs);
+    const auto deltaMinimums = new float[recordCount];
+    const auto deltaMaximums = new float[recordCount];
+    const auto deltaTotals = new float[recordCount];
+    const auto deltaMeans = new float[recordCount];
+    const auto deltaStdDevs = new float[recordCount];
+
+    GetStats(minimums, maximums,totals, means, stdDevs,
+        deltaMinimums, deltaMaximums, deltaTotals, deltaMeans, deltaStdDevs);
 
     constexpr float epsilon = 0.0001f;
 
@@ -168,6 +175,14 @@ void testAnalyzeData1() {
     assert(fabs(totals[2] - 99.0f) < epsilon);
     assert(fabs(means[2] - 6.6f) < epsilon);
     assert(fabs(stdDevs[2] - 2.6944f) < epsilon);
+
+    for (int i = 0; i < 3; i++) {
+        assert(fabs(deltaMinimums[i] - 3.3f) < epsilon);
+        assert(fabs(deltaMaximums[i] - 6.6f) < epsilon);
+        assert(fabs(deltaTotals[i] - 62.7f) < epsilon);
+        assert(fabs(deltaMeans[i] - 4.18f) < epsilon);
+        assert(fabs(deltaStdDevs[i] - 1.4593f) < epsilon);
+    }
 
     assert(CloseStorage());
 }
@@ -193,7 +208,14 @@ void testAnalyzeData2() {
     const auto means = new float[recordCount];
     const auto stdDevs = new float[recordCount];
 
-    GetStats(minimums, maximums,totals, means, stdDevs);
+    const auto deltaMinimums = new float[recordCount];
+    const auto deltaMaximums = new float[recordCount];
+    const auto deltaTotals = new float[recordCount];
+    const auto deltaMeans = new float[recordCount];
+    const auto deltaStdDevs = new float[recordCount];
+
+    GetStats(minimums, maximums,totals, means, stdDevs,
+        deltaMinimums, deltaMaximums, deltaTotals, deltaMeans, deltaStdDevs);
 
     constexpr float epsilon = 0.0001f;
 
@@ -214,6 +236,14 @@ void testAnalyzeData2() {
     assert(fabs(totals[2] - 990.0f) < epsilon);
     assert(fabs(means[2] - 6.6f) < epsilon);
     assert(fabs(stdDevs[2] - 2.6944f) < epsilon);
+
+    for (int i = 0; i < 3; i++) {
+        assert(fabs(deltaMinimums[i] - 3.3f) < epsilon);
+        assert(fabs(deltaMaximums[i] - 6.6f) < epsilon);
+        assert(fabs(deltaTotals[i] - 656.7f) < epsilon);
+        assert(fabs(deltaMeans[i] - 4.378f) < epsilon);
+        assert(fabs(deltaStdDevs[i] - 1.5476f) < epsilon);
+    }
 
     assert(CloseStorage());
 }
