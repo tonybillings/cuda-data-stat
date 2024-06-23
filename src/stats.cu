@@ -371,6 +371,12 @@ namespace {
 *******************************************************************************/
 
 bool calculateStats(const char *data, const size_t dataSize, DataStats &stats) {
+    cudaDeviceProp deviceProp{};
+    cudaGetDeviceProperties(&deviceProp, 0);
+    return calculateStats(data, dataSize, deviceProp.maxThreadsPerBlock, stats);
+}
+
+bool calculateStats(const char *data, const size_t dataSize, const size_t threadsPerBlock, DataStats &stats) {
     float *dData;
     float *dMins, *dMaxs, *dTotals, *dMeans, *dStdDevs;
     float *dDeltaMins, *dDeltaMaxs, *dDeltaTotals, *dDeltaMeans, *dDeltaStdDevs;
@@ -396,12 +402,21 @@ bool calculateStats(const char *data, const size_t dataSize, DataStats &stats) {
         return false;
     }
 
-    // TODO: handle case where record count is greater than max threads (implement batching)
-    constexpr size_t blockWidth = 32; // TODO: make configurable
+    cudaDeviceProp deviceProp{};
+    cudaGetDeviceProperties(&deviceProp, 0);
+    const size_t maxThreadsPerBlock = deviceProp.maxThreadsPerBlock;
+
+    const size_t blockWidth = threadsPerBlock;
+    if (blockWidth < 32 || (blockWidth & (blockWidth - 1)) != 0) {
+        ERROR("threadsPerBlock must be a power of two between 32 and %lu, you provided %lu",
+            maxThreadsPerBlock, threadsPerBlock);
+    }
+
     const size_t blockCount = (stats.recordCount + blockWidth - 1) / blockWidth;
+
     const dim3 grid(blockCount, stats.fieldCount);
-    constexpr dim3 block(blockWidth, 1);
-    constexpr size_t sharedMemSize = blockWidth * sizeof(float);
+    const dim3 block(blockWidth, 1);
+    const size_t sharedMemSize = blockWidth * sizeof(float);
 
     cudaStream_t minStream, maxStream;
     cudaStreamCreate(&minStream);

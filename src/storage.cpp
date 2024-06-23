@@ -102,6 +102,8 @@ bool deleteRamDisk(const string& workingDir) {
         return false;
     }
 
+    sync(); // ensure pending actions are completed / device is not busy
+
     PRINTLN("Deleting the RAM disk...");
     if (umount(workingDir.c_str()) != 0) {
         ERROR("unable to delete the RAM disk '%s': %s", workingDir.c_str(), strerror(errno));
