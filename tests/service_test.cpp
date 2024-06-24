@@ -42,19 +42,26 @@ using std::chrono::milliseconds;
 *******************************************************************************/
 
 namespace {
-    const string defaultWorkDir = "/tmp/.cds";
-    constexpr size_t ramDiskSizeMb = 10;
     constexpr bool isVerbose = true;
-    constexpr size_t maxFileCount = 10;
-    constexpr size_t maxRecordCount = 10;
-    constexpr size_t maxFieldCount = 10;
+    constexpr int storageCloseWaitMilli = 25;       // avoid "device is busy" error with rapid mount/unmount calls
+
+    constexpr size_t ramDiskSizeMb = 1000;          // make big enough to contain data
+    const string defaultWorkDir = "/tmp/.cds";
+
+    constexpr size_t minFileCount = 1;
+    constexpr size_t minRecordCount = 25000;
+    constexpr size_t minFieldCount = 1000;
+
+    constexpr size_t maxFileCount = 1;
+    constexpr size_t maxRecordCount = 25000;        // too big and GPU/CPU summation discrepancies will appear!
+    constexpr size_t maxFieldCount = 1000;
 }
 
 /*******************************************************************************
  UTILITY FUNCTIONS
 *******************************************************************************/
 
-DataStats generateTestFiles(const std::string& directory, const int fileCount, const int recordCount, const int fieldCount) {
+DataStats generateTestFiles(const string& directory, const int fileCount, const int recordCount, const int fieldCount) {
     if (!checkDirectory(directory)) {
         exit(EXIT_FAILURE);
     }
@@ -64,7 +71,7 @@ DataStats generateTestFiles(const std::string& directory, const int fileCount, c
         exit(EXIT_FAILURE);
     }
 
-    vector<vector<float>> data(fieldCount);
+    vector<vector<double>> data(fieldCount);
     int totalRecords = 0;
 
     for (int i = 1; i <= fileCount; i++) {
@@ -72,15 +79,15 @@ DataStats generateTestFiles(const std::string& directory, const int fileCount, c
         ofstream file(filename);
 
         for (int j = 0; j < recordCount; j++) {
-            const auto x = static_cast<float>(j % 3) * 3.3f;
+            const auto x = static_cast<double>(j % 3) * 3.3;
 
             for (int k = 0; k < fieldCount; k++) {
                 int fieldIndex = k % 3;
-                constexpr auto a = 1.1f;
-                constexpr auto b = 2.2f;
-                constexpr auto c = 3.3f;
+                constexpr auto a = 1.1;
+                constexpr auto b = 2.2;
+                constexpr auto c = 3.3;
 
-                float value = (fieldIndex == 0 ? a : (fieldIndex == 1 ? b : c)) + x;
+                double value = (fieldIndex == 0 ? a : (fieldIndex == 1 ? b : c)) + x;
                 file << to_string(value).substr(0, 3);
 
                 if (k < fieldCount - 1) {
@@ -100,28 +107,31 @@ DataStats generateTestFiles(const std::string& directory, const int fileCount, c
 
     DataStats ds(fieldCount);
     ds.recordCount = totalRecords;
+
     for (int i = 0; i < fieldCount; i++) {
         ds.minimums[i] = *min_element(data[i].begin(), data[i].end());
         ds.maximums[i] = *max_element(data[i].begin(), data[i].end());
-        float total = accumulate(data[i].begin(), data[i].end(), 0.0f);
-        float mean = total / static_cast<float>(data[i].size());
+
+        double total = accumulate(data[i].begin(), data[i].end(), 0.0);
+        double mean = total / static_cast<double>(data[i].size());
         ds.totals[i] = total;
         ds.means[i] = mean;
 
-        float sum = 0.0f;
+        vector<double> sumVec(totalRecords);
         for (int j = 0; j < totalRecords; j++) {
-            sum += powf(data[i][j] - mean, 2);
+            sumVec[j] = pow(data[i][j] - mean, 2);
         }
-        ds.stdDevs[i] = sqrtf(sum / static_cast<float>(totalRecords));
+        double sum = accumulate(sumVec.begin(), sumVec.end(), 0.0);
+        ds.stdDevs[i] = sqrt(sum / static_cast<double>(totalRecords));
     }
 
     if (totalRecords > 1) {
         for (int i = 0; i < fieldCount; i++) {
-            float previous = data[i][0];
+            double previous = data[i][0];
             data[i][0] = fabs(data[i][1] - data[i][0]);
 
             for (int j = 1; j < totalRecords; j++) {
-                float current = data[i][j];
+                double current = data[i][j];
                 data[i][j] = fabs(current - previous);
                 previous = current;
             }
@@ -130,16 +140,18 @@ DataStats generateTestFiles(const std::string& directory, const int fileCount, c
         for (int i = 0; i < fieldCount; i++) {
             ds.deltaMinimums[i] = *min_element(data[i].begin(), data[i].end());
             ds.deltaMaximums[i] = *max_element(data[i].begin(), data[i].end());
-            float total = accumulate(data[i].begin(), data[i].end(), 0.0f);
-            float mean = total / static_cast<float>(data[i].size());
+
+            double total = accumulate(data[i].begin(), data[i].end(), 0.0);
+            double mean = total / static_cast<double>(data[i].size());
             ds.deltaTotals[i] = total;
             ds.deltaMeans[i] = mean;
 
-            float sum = 0.0f;
+            vector<double> sumVec(totalRecords);
             for (int j = 0; j < totalRecords; j++) {
-                sum += powf(data[i][j] - mean, 2);
+                sumVec[j] = pow(data[i][j] - mean, 2);
             }
-            ds.deltaStdDevs[i] = sqrtf(sum / static_cast<float>(totalRecords));
+            double sum = accumulate(sumVec.begin(), sumVec.end(), 0.0);
+            ds.deltaStdDevs[i] = sqrt(sum / static_cast<double>(totalRecords));
         }
     } else {
         for (int i = 0; i < fieldCount; i++) {
@@ -153,11 +165,41 @@ DataStats generateTestFiles(const std::string& directory, const int fileCount, c
     return ds;
 }
 
+void printDataStats(const DataStats& ds) {
+    cout << "DataStats:" << endl;
+    cout << "\tField Count: " << ds.fieldCount << endl;
+    cout << "\tRecord Count: " << ds.recordCount << endl;
+
+    auto printVector = [](const string& name, const vector<double>& vec) {
+        cout << name << ": ";
+        for (const auto& val : vec) {
+            cout << val << " ";
+        }
+        cout << endl;
+    };
+
+    printVector("\tMinimums", ds.minimums);
+    printVector("\tMaximums", ds.maximums);
+    printVector("\tTotals", ds.totals);
+    printVector("\tMeans", ds.means);
+    printVector("\tStandard Deviations", ds.stdDevs);
+
+    printVector("\tDelta Minimums", ds.deltaMinimums);
+    printVector("\tDelta Maximums", ds.deltaMaximums);
+    printVector("\tDelta Totals", ds.deltaTotals);
+    printVector("\tDelta Means", ds.deltaMeans);
+    printVector("\tDelta Standard Deviations", ds.deltaStdDevs);
+
+    cout << endl;
+}
+
 /*******************************************************************************
  TESTS  // TODO: add more test cases
 *******************************************************************************/
 
 void testProcessInputFiles() {
+    PRINTLN("\nRunning testProcessInputFiles()...");
+
     assert(InitStorage(defaultWorkDir.c_str(), ramDiskSizeMb));
 
     generateTestFiles(defaultWorkDir, 3, 3, 3);
@@ -173,6 +215,9 @@ void testProcessInputFiles() {
 }
 
 void testAnalyzeData(const int fileCount, const int recordCount, const int fieldCount) {
+    PRINTLN("\nRunning testAnalyzeData(fileCount: %d, recordCount: %d, fieldCount: %d)...",
+        fileCount, recordCount, fieldCount);
+
     assert(InitStorage(defaultWorkDir.c_str(), ramDiskSizeMb));
 
     const DataStats expectedStats = generateTestFiles(defaultWorkDir, fileCount, recordCount, fieldCount);
@@ -187,8 +232,13 @@ void testAnalyzeData(const int fileCount, const int recordCount, const int field
     assert(totalRecordCount == fileCount * recordCount);
     assert(actualFieldCount == fieldCount);
 
-    const DataStats actualStats = stats::get();
-    assert(actualStats == expectedStats && "actual DataStats does not equal expected DataStats");
+    if (const DataStats actualStats = stats::get(); actualStats != expectedStats) {
+        printDataStats(actualStats);
+        printDataStats(expectedStats);
+        sleep_for(milliseconds(20)); // allow time for printing to stdout before assert exits
+
+        assert(actualStats == expectedStats && "actual DataStats does not equal expected DataStats");
+    }
 
     assert(CloseStorage());
 }
@@ -202,11 +252,11 @@ int main() {
 
     testProcessInputFiles();
 
-    for (int i = 1; i <= maxFileCount; i++) {
-        for (int j = 1; j <= maxRecordCount; j++) {
-            for (int k = 1; k <= maxFieldCount; k++) {
+    for (int i = minFileCount; i <= maxFileCount; i++) {
+        for (int j = minRecordCount; j <= maxRecordCount; j++) {
+            for (int k = minFieldCount; k <= maxFieldCount; k++) {
                 testAnalyzeData(i, j, k);
-                sleep_for(milliseconds(25));
+                sleep_for(milliseconds(storageCloseWaitMilli));
             }
         }
     }

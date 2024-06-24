@@ -7,7 +7,7 @@
 #include <string>
 
 bool isCsvFile(const std::string& filename);
-bool processCsvFile(const std::string& filePath, std::vector<float>& data, DataStats& stats);
+bool processCsvFile(const std::string& filePath, std::vector<double>& data, DataStats& stats);
 bool processInputFiles(const std::string& workingDir, DataStats& stats);
 bool analyzeData(const std::string& workingDir, DataStats& stats);
 
@@ -15,8 +15,8 @@ extern "C" {
     bool ProcessInputFiles();
     bool AnalyzeData();
     void GetFieldAndRecordCount(int* recordCount, int* fieldCount);
-    void GetStats(float* minimums, float* maximums, float* totals, float* means, float* stdDevs,
-        float* deltaMinimums, float* deltaMaximums, float* deltaTotals, float* deltaMeans, float* deltaStdDevs);
+    void GetStats(double* minimums, double* maximums, double* totals, double* means, double* stdDevs,
+        double* deltaMinimums, double* deltaMaximums, double* deltaTotals, double* deltaMeans, double* deltaStdDevs);
 }
 
 #endif // SERVICE_H

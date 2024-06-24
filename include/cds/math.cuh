@@ -2,34 +2,35 @@
 #define MATH_CUH
 
 #include <cuda_runtime.h>
-#include <iostream>
 
-__device__ inline float atomicMinFloat(float* valPtr, const float val) {
-    const auto valIntPtr = reinterpret_cast<int*>(valPtr);
-    int actualValInt = *valIntPtr;
-    int expectedValInt;
+__device__ inline double atomicMin(double* address, const double val) {
+    auto* valPtr = reinterpret_cast<unsigned long long*>(address);
+    unsigned long long actualVal = *valPtr;
+    unsigned long long expectedVal;
 
     do {
-        expectedValInt = actualValInt;
-        const float newVal = fminf(val, __int_as_float(expectedValInt));
-        actualValInt = atomicCAS(valIntPtr, expectedValInt, __float_as_int(newVal));
-    } while (expectedValInt != actualValInt);
+        expectedVal = actualVal;
+        const double old = __longlong_as_double(static_cast<long long>(actualVal));
+        const double newVal = min(val, old);
+        actualVal = atomicCAS(valPtr, expectedVal, __double_as_longlong(newVal));
+    } while (expectedVal != actualVal);
 
-    return __int_as_float(actualValInt);
+    return __longlong_as_double(static_cast<long long>(actualVal));
 }
 
-__device__ inline float atomicMaxFloat(float* valPtr, const float val) {
-    const auto valIntPtr = reinterpret_cast<int*>(valPtr);
-    int actualValInt = *valIntPtr;
-    int expectedValInt;
+__device__ inline double atomicMax(double* address, const double val) {
+    auto* valPtr = reinterpret_cast<unsigned long long*>(address);
+    unsigned long long actualVal = *valPtr;
+    unsigned long long expectedVal;
 
     do {
-        expectedValInt = actualValInt;
-        const float newVal = fmaxf(val, __int_as_float(expectedValInt));
-        actualValInt = atomicCAS(valIntPtr, expectedValInt, __float_as_int(newVal));
-    } while (expectedValInt != actualValInt);
+        expectedVal = actualVal;
+        const double old = __longlong_as_double(static_cast<long long>(actualVal));
+        const double newVal = max(val, old);
+        actualVal = atomicCAS(valPtr, expectedVal, __double_as_longlong(newVal));
+    } while (expectedVal != actualVal);
 
-    return __int_as_float(actualValInt);
+    return __longlong_as_double(static_cast<long long>(actualVal));
 }
 
 #endif // MATH_CUH

@@ -36,7 +36,7 @@ bool isCsvFile(const string& filename) {
     return false;
 }
 
-bool processCsvFile(const string& filePath, vector<float>& data, DataStats& stats) {
+bool processCsvFile(const string& filePath, vector<double>& data, DataStats& stats) {
     ifstream file(filePath);
     if (!file.is_open()) {
         ERROR("unable to open file '%s': %s", filePath.c_str(), strerror(errno));
@@ -46,7 +46,7 @@ bool processCsvFile(const string& filePath, vector<float>& data, DataStats& stat
     string line;
     stats.fieldCount = 0;
     stats.recordCount = 0;
-    vector<float> fileData;
+    vector<double> fileData;
 
     while (getline(file, line)) {
         stringstream ss(line);
@@ -55,7 +55,7 @@ bool processCsvFile(const string& filePath, vector<float>& data, DataStats& stat
 
         while (getline(ss, field, ',')) {
             try {
-                float value = stof(field);
+                double value = stod(field);
                 fileData.push_back(value);
                 numFields++;
             } catch (const invalid_argument&) {
@@ -99,7 +99,7 @@ bool processInputFiles(const string& workingDir, DataStats& stats) {
             string filePath = inputDir;
             filePath.append("/").append(filename);
 
-            vector<float> fileData;
+            vector<double> fileData;
             DataStats st;
             if (!processCsvFile(filePath, fileData, st)) {
                 closedir(dir);
@@ -109,7 +109,7 @@ bool processInputFiles(const string& workingDir, DataStats& stats) {
             stats.fieldCount = st.fieldCount;
             stats.recordCount += st.recordCount;
 
-            if (!appendData(dataFile, reinterpret_cast<char*>(fileData.data()), fileData.size() * sizeof(float))) {
+            if (!appendData(dataFile, reinterpret_cast<char*>(fileData.data()), fileData.size() * sizeof(double))) {
                 closedir(dir);
                 return false;
             }
@@ -182,14 +182,14 @@ extern "C" {
     }
 
     void GetFieldAndRecordCount(int* recordCount, int* fieldCount) {
-        DataStats ds = stats::get();
+        const DataStats ds = stats::get();
         *recordCount = static_cast<int>(ds.recordCount);
         *fieldCount = static_cast<int>(ds.fieldCount);
     }
 
-    void GetStats(float* minimums, float* maximums, float* totals, float* means, float* stdDevs,
-        float* deltaMinimums, float* deltaMaximums, float* deltaTotals, float* deltaMeans, float* deltaStdDevs) {
-        DataStats ds = stats::get();
+    void GetStats(double* minimums, double* maximums, double* totals, double* means, double* stdDevs,
+        double* deltaMinimums, double* deltaMaximums, double* deltaTotals, double* deltaMeans, double* deltaStdDevs) {
+        const DataStats ds = stats::get();
         for (int i = 0; i < ds.fieldCount; i++) {
             minimums[i] = ds.minimums[i];
             maximums[i] = ds.maximums[i];

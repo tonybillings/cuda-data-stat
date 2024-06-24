@@ -2,6 +2,7 @@ cmake_minimum_required(VERSION 3.28)
 project(cds LANGUAGES CXX CUDA)
 
 set(CMAKE_CXX_STANDARD 17)
+set(CMAKE_CUDA_ARCHITECTURES 60 61 62 70 72 75 80 86 89)  # must support atomicAdd(double*, double)
 
 add_library(cds_lib
         include/cds/cuda_error.h
