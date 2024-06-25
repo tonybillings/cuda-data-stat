@@ -1,7 +1,6 @@
 # CUDA Data Stat (WIP)
 
 TODO:
-  * Implement batching for large datasets
   * Finish directory processing logic and main service loop
   * Improve efficiency where possible
   * Improve messaging and error handling

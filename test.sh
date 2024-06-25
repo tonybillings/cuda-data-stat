@@ -1,7 +1,7 @@
 #!/bin/bash
 
 if [ -d "build" ]; then
-    sudo rm -rf build
+  sudo rm -rf build
 fi
 
 cmake -S . -B build
@@ -24,14 +24,13 @@ if [ $? -ne 0 ]; then
   exit 1
 fi
 
-
 cmake --build build --target service_test
 if [ $? -ne 0 ]; then
   echo "Build for service_test failed"
   exit 1
 fi
 
-cd build
+cd build/libcds
 sudo ctest
 
 if [ $? -ne 0 ]; then

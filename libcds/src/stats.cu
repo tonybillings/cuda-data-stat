@@ -29,6 +29,7 @@ __global__ void calculateMins(const double* data, const size_t recordCount, cons
     const unsigned int localIdx = threadIdx.x;
 
     sdataMins[localIdx] = DBL_MAX;
+    __syncthreads();
 
     if (globalIdxX < recordCount && globalIdxY < fieldCount) {
         sdataMins[localIdx] = data[globalIdxX * fieldCount + globalIdxY];
@@ -57,6 +58,7 @@ __global__ void calculateDeltaMins(const double* data, const size_t recordCount,
     const unsigned int localIdx = threadIdx.x;
 
     sdataDeltaMins[localIdx] = DBL_MAX;
+    __syncthreads();
 
     if (globalIdxX < recordCount && globalIdxY < fieldCount) {
         const double localValue = data[globalIdxX * fieldCount + globalIdxY];
@@ -89,6 +91,7 @@ __global__ void calculateMaxs(const double* data, const size_t recordCount, cons
     const unsigned int localIdx = threadIdx.x;
 
     sdataMaxs[localIdx] = DBL_MIN;
+    __syncthreads();
 
     if (globalIdxX < recordCount && globalIdxY < fieldCount) {
         sdataMaxs[localIdx] = data[globalIdxX * fieldCount + globalIdxY];
@@ -117,6 +120,7 @@ __global__ void calculateDeltaMaxs(const double* data, const size_t recordCount,
     const unsigned int localIdx = threadIdx.x;
 
     sdataDeltaMaxs[localIdx] = DBL_MIN;
+    __syncthreads();
 
     if (globalIdxX < recordCount && globalIdxY < fieldCount) {
         const double localValue = data[globalIdxX * fieldCount + globalIdxY];
@@ -177,6 +181,7 @@ __global__ void calculateDeltaTotals(const double* data, const size_t recordCoun
     const unsigned int localIdx = threadIdx.x;
 
     sdataDeltaTotals[localIdx] = 0.0;
+    __syncthreads();
 
     if (globalIdxX < recordCount && globalIdxY < fieldCount) {
         const double localValue = data[globalIdxX * fieldCount + globalIdxY];
@@ -209,6 +214,7 @@ __global__ void calculateMeansStddevs(const double* data, const size_t recordCou
     const unsigned int localIdx = threadIdx.x;
 
     sdataStddev[localIdx] = 0.0;
+    __syncthreads();
 
     double val = 0.0;
     if (globalIdxX < recordCount && globalIdxY < fieldCount) {
@@ -247,6 +253,7 @@ __global__ void calculateDeltaMeansStddevs(const double* data, const size_t reco
     const unsigned int localIdx = threadIdx.x;
 
     sdataDeltaStddev[localIdx] = 0.0;
+    __syncthreads();
 
     double val = 0.0;
     if (globalIdxX < recordCount && globalIdxY < fieldCount) {
@@ -287,16 +294,16 @@ __global__ void calculateDeltaMeansStddevs(const double* data, const size_t reco
 namespace {
     bool runCalculateMins(dim3 grid, dim3 block, size_t sharedMemorySize, cudaStream_t stream, const double* data,
         const size_t recordCount, const size_t fieldCount, double* mins) {
-            calculateMins<<<grid, block, sharedMemorySize, stream>>>(data, recordCount, fieldCount, mins);
-            if (const cudaError_t err = cudaGetLastError(); err != cudaSuccess) {
-                ERROR("calculateMins failed: %s", cudaGetErrorString(err));
-                return false;
-            }
-            return true;
+        calculateMins<<<grid, block, sharedMemorySize, stream>>>(data, recordCount, fieldCount, mins);
+        if (const cudaError_t err = cudaGetLastError(); err != cudaSuccess) {
+            ERROR("calculateMins failed: %s", cudaGetErrorString(err));
+            return false;
+        }
+        return true;
     }
 
     bool runCalculateDeltaMins(dim3 grid, dim3 block, size_t sharedMemorySize, cudaStream_t stream, const double* data,
-    const size_t recordCount, const size_t fieldCount, double* mins) {
+        const size_t recordCount, const size_t fieldCount, double* mins) {
         calculateDeltaMins<<<grid, block, sharedMemorySize, stream>>>(data, recordCount, fieldCount, mins);
         if (const cudaError_t err = cudaGetLastError(); err != cudaSuccess) {
             ERROR("calculateDeltaMins failed: %s", cudaGetErrorString(err));
@@ -307,12 +314,12 @@ namespace {
 
     bool runCalculateMaxs(dim3 grid, dim3 block, size_t sharedMemorySize, cudaStream_t stream, const double* data,
         const size_t recordCount, const size_t fieldCount, double* maxs) {
-            calculateMaxs<<<grid, block, sharedMemorySize, stream>>>(data, recordCount, fieldCount, maxs);
-            if (const cudaError_t err = cudaGetLastError(); err != cudaSuccess) {
-                ERROR("calculateMaxs failed: %s", cudaGetErrorString(err));
-                return false;
-            }
-            return true;
+        calculateMaxs<<<grid, block, sharedMemorySize, stream>>>(data, recordCount, fieldCount, maxs);
+        if (const cudaError_t err = cudaGetLastError(); err != cudaSuccess) {
+            ERROR("calculateMaxs failed: %s", cudaGetErrorString(err));
+            return false;
+        }
+        return true;
     }
 
     bool runCalculateDeltaMaxs(dim3 grid, dim3 block, size_t sharedMemorySize, cudaStream_t stream, const double* data,
@@ -327,16 +334,16 @@ namespace {
 
     bool runCalculateTotals(dim3 grid, dim3 block, size_t sharedMemorySize, cudaStream_t stream, const double* data,
         const size_t recordCount, const size_t fieldCount, double* totals) {
-            calculateTotals<<<grid, block, sharedMemorySize, stream>>>(data, recordCount, fieldCount, totals);
-            if (const cudaError_t err = cudaGetLastError(); err != cudaSuccess) {
-                ERROR("calculateTotals failed: %s", cudaGetErrorString(err));
-                return false;
-            }
-            return true;
+        calculateTotals<<<grid, block, sharedMemorySize, stream>>>(data, recordCount, fieldCount, totals);
+        if (const cudaError_t err = cudaGetLastError(); err != cudaSuccess) {
+            ERROR("calculateTotals failed: %s", cudaGetErrorString(err));
+            return false;
+        }
+        return true;
     }
 
     bool runCalculateDeltaTotals(dim3 grid, dim3 block, size_t sharedMemorySize, cudaStream_t stream, const double* data,
-    const size_t recordCount, const size_t fieldCount, double* totals) {
+        const size_t recordCount, const size_t fieldCount, double* totals) {
         calculateDeltaTotals<<<grid, block, sharedMemorySize, stream>>>(data, recordCount, fieldCount, totals);
         if (const cudaError_t err = cudaGetLastError(); err != cudaSuccess) {
             ERROR("calculateDeltaTotals failed: %s", cudaGetErrorString(err));
@@ -348,17 +355,17 @@ namespace {
     bool runCalculateMeansStddevs(dim3 grid, dim3 block, size_t sharedMemorySize, cudaStream_t stream,
         const double* data, const size_t recordCount, const size_t fieldCount, const double* totals,
         double* means, double* stdDevs) {
-            calculateMeansStddevs<<<grid, block, sharedMemorySize, stream>>>(data, recordCount, fieldCount, totals, means, stdDevs);
-            if (const cudaError_t err = cudaGetLastError(); err != cudaSuccess) {
-                ERROR("calculateMeansStddevs failed: %s", cudaGetErrorString(err));
-                return false;
-            }
-            return true;
+        calculateMeansStddevs<<<grid, block, sharedMemorySize, stream>>>(data, recordCount, fieldCount, totals, means, stdDevs);
+        if (const cudaError_t err = cudaGetLastError(); err != cudaSuccess) {
+            ERROR("calculateMeansStddevs failed: %s", cudaGetErrorString(err));
+            return false;
+        }
+        return true;
     }
 
     bool runCalculateDeltaMeansStddevs(dim3 grid, dim3 block, size_t sharedMemorySize, cudaStream_t stream,
-    const double* data, const size_t recordCount, const size_t fieldCount, const double* totals,
-    double* means, double* stdDevs) {
+        const double* data, const size_t recordCount, const size_t fieldCount, const double* totals,
+        double* means, double* stdDevs) {
         calculateDeltaMeansStddevs<<<grid, block, sharedMemorySize, stream>>>(data, recordCount, fieldCount, totals, means, stdDevs);
         if (const cudaError_t err = cudaGetLastError(); err != cudaSuccess) {
             ERROR("calculateDeltaMeansStddevs failed: %s", cudaGetErrorString(err));

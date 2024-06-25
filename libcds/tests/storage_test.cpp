@@ -7,7 +7,6 @@
 
 #include <iostream>
 #include <cstdlib>
-#include <cstring>
 #include <cstdio>
 #include <sys/stat.h>
 #include <cassert>
@@ -23,9 +22,9 @@ using std::string;
 *******************************************************************************/
 
 namespace {
+    constexpr bool isVerbose = true;
     const string defaultWorkDir = "/tmp/.cds";
     constexpr size_t ramDiskSizeMb = 10;
-    constexpr bool isVerbose = true;
 }
 
 /*******************************************************************************

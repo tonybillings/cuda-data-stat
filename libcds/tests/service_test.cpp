@@ -267,4 +267,3 @@ int main() {
     printf("All tests completed successfully.\n");
     exit(EXIT_SUCCESS);
 }
-

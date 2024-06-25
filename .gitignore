@@ -1,3 +1,7 @@
 .idea
+gocds/.idea
+
 build
 cmake-build-debug
+libcds/build
+libcds/cmake-build-debug

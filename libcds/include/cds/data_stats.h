@@ -64,4 +64,3 @@ namespace stats {
 }
 
 #endif //DATA_STATS_H
-
