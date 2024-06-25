@@ -4,6 +4,7 @@
 #include <vector>
 #include <algorithm>
 #include <cmath>
+#include <cstdio>
 
 struct DataStats {
     size_t fieldCount = 0;
@@ -34,21 +35,21 @@ struct DataStats {
         };
 
         auto veryFuzzyEqual = [](const double x, const double y) {
-            return std::fabs(x - y) < 0.05;
+            return std::fabs(x - y) < 0.00005;
         };
 
         return fieldCount == other.fieldCount &&
-               recordCount == other.recordCount &&
-               std::equal(minimums.begin(), minimums.end(), other.minimums.begin(), fuzzyEqual) &&
-               std::equal(maximums.begin(), maximums.end(), other.maximums.begin(), fuzzyEqual) &&
-               std::equal(totals.begin(), totals.end(), other.totals.begin(), veryFuzzyEqual) &&
-               std::equal(means.begin(), means.end(), other.means.begin(), fuzzyEqual) &&
-               std::equal(stdDevs.begin(), stdDevs.end(), other.stdDevs.begin(), fuzzyEqual) &&
-               std::equal(deltaMinimums.begin(), deltaMinimums.end(), other.deltaMinimums.begin(), fuzzyEqual) &&
-               std::equal(deltaMaximums.begin(), deltaMaximums.end(), other.deltaMaximums.begin(), fuzzyEqual) &&
-               std::equal(deltaTotals.begin(), deltaTotals.end(), other.deltaTotals.begin(), veryFuzzyEqual) &&
-               std::equal(deltaMeans.begin(), deltaMeans.end(), other.deltaMeans.begin(), fuzzyEqual) &&
-               std::equal(deltaStdDevs.begin(), deltaStdDevs.end(), other.deltaStdDevs.begin(), fuzzyEqual);
+            recordCount == other.recordCount &&
+            std::equal(minimums.begin(), minimums.end(), other.minimums.begin(), fuzzyEqual) &&
+            std::equal(maximums.begin(), maximums.end(), other.maximums.begin(), fuzzyEqual) &&
+            std::equal(totals.begin(), totals.end(), other.totals.begin(), veryFuzzyEqual) &&
+            std::equal(means.begin(), means.end(), other.means.begin(), fuzzyEqual) &&
+            std::equal(stdDevs.begin(), stdDevs.end(), other.stdDevs.begin(), fuzzyEqual) &&
+            std::equal(deltaMinimums.begin(), deltaMinimums.end(), other.deltaMinimums.begin(), fuzzyEqual) &&
+            std::equal(deltaMaximums.begin(), deltaMaximums.end(), other.deltaMaximums.begin(), fuzzyEqual) &&
+            std::equal(deltaTotals.begin(), deltaTotals.end(), other.deltaTotals.begin(), veryFuzzyEqual) &&
+            std::equal(deltaMeans.begin(), deltaMeans.end(), other.deltaMeans.begin(), fuzzyEqual) &&
+            std::equal(deltaStdDevs.begin(), deltaStdDevs.end(), other.deltaStdDevs.begin(), fuzzyEqual);
     }
 
     bool operator!=(const DataStats& other) const {
@@ -63,3 +64,4 @@ namespace stats {
 }
 
 #endif //DATA_STATS_H
+
