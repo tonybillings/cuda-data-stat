@@ -264,6 +264,12 @@ int main() {
     testAnalyzeData(2, 500000, 3);
     testAnalyzeData(4, 250000, 3);
 
+    testAnalyzeData(1, 1000, 30);
+    testAnalyzeData(2, 500, 300);
+    testAnalyzeData(4, 250, 3000);
+
+    testAnalyzeData(2, 10000, 10000);
+
     printf("All tests completed successfully.\n");
     exit(EXIT_SUCCESS);
 }
