@@ -6,7 +6,6 @@
 #include "cds/service.h"
 #include "cds/debug.h"
 
-#include <iostream>
 #include <fstream>
 #include <string>
 #include <vector>
@@ -25,12 +24,8 @@
 using std::string;
 using std::ofstream;
 using std::vector;
-using std::min;
 using std::to_string;
 using std::fabs;
-using std::cout;
-using std::endl;
-using std::move;
 using std::min_element;
 using std::max_element;
 using std::accumulate;
@@ -43,7 +38,7 @@ using std::chrono::milliseconds;
 
 namespace {
     constexpr bool isVerbose = true;
-    constexpr int storageCloseWaitMilli = 5;        // avoid "device is busy" error with rapid mount/unmount calls
+    constexpr int storageCloseWaitMilli = 5;       // avoid "device is busy" error with rapid mount/unmount calls
 
     constexpr size_t ramDiskSizeMb = 5000;          // make big enough to contain data
     const string defaultWorkDir = "/tmp/.cds";
@@ -60,6 +55,95 @@ namespace {
 /*******************************************************************************
  UTILITY FUNCTIONS
 *******************************************************************************/
+
+void printDataStats(const DataStats& ds) {
+    printf("DataStats:\n");
+    printf("\tField Count: %lu\n", ds.fieldCount);
+    printf("\tRecord Count: %lu\n", ds.recordCount);
+
+    auto printVector = [](const string& name, const vector<double>& vec) {
+        printf("\t%s: ", name.c_str());
+        for (const auto& val : vec) {
+            printf("%f ", val);
+        }
+        printf("\n");
+    };
+
+    printVector("Minimums", ds.minimums);
+    printVector("Maximums", ds.maximums);
+    printVector("Totals", ds.totals);
+    printVector("Means", ds.means);
+    printVector("Standard Deviations", ds.stdDevs);
+
+    printVector("Delta Minimums", ds.deltaMinimums);
+    printVector("Delta Maximums", ds.deltaMaximums);
+    printVector("Delta Totals", ds.deltaTotals);
+    printVector("Delta Means", ds.deltaMeans);
+    printVector("Delta Standard Deviations", ds.deltaStdDevs);
+
+    printf("\n");
+}
+
+DataStats newDataStats(vector<vector<double>>& data, const int totalRecords, const int fieldCount) {
+    DataStats ds(fieldCount);
+    ds.recordCount = totalRecords;
+
+    for (int i = 0; i < fieldCount; i++) {
+        ds.minimums[i] = *min_element(data[i].begin(), data[i].end());
+        ds.maximums[i] = *max_element(data[i].begin(), data[i].end());
+
+        const double total = accumulate(data[i].begin(), data[i].end(), 0.0);
+        const double mean = total / static_cast<double>(data[i].size());
+        ds.totals[i] = total;
+        ds.means[i] = mean;
+
+        vector<double> sumVec(totalRecords);
+        for (int j = 0; j < totalRecords; j++) {
+            sumVec[j] = pow(data[i][j] - mean, 2);
+        }
+        const double sum = accumulate(sumVec.begin(), sumVec.end(), 0.0);
+        ds.stdDevs[i] = sqrt(sum / static_cast<double>(totalRecords));
+    }
+
+    if (totalRecords > 1) {
+        for (int i = 0; i < fieldCount; i++) {
+            double previous = data[i][0];
+            data[i][0] = fabs(data[i][1] - data[i][0]);
+
+            for (int j = 1; j < totalRecords; j++) {
+                const double current = data[i][j];
+                data[i][j] = fabs(current - previous);
+                previous = current;
+            }
+        }
+
+        for (int i = 0; i < fieldCount; i++) {
+            ds.deltaMinimums[i] = *min_element(data[i].begin(), data[i].end());
+            ds.deltaMaximums[i] = *max_element(data[i].begin(), data[i].end());
+
+            const double total = accumulate(data[i].begin(), data[i].end(), 0.0);
+            const double mean = total / static_cast<double>(data[i].size());
+            ds.deltaTotals[i] = total;
+            ds.deltaMeans[i] = mean;
+
+            vector<double> sumVec(totalRecords);
+            for (int j = 0; j < totalRecords; j++) {
+                sumVec[j] = pow(data[i][j] - mean, 2);
+            }
+            const double sum = accumulate(sumVec.begin(), sumVec.end(), 0.0);
+            ds.deltaStdDevs[i] = sqrt(sum / static_cast<double>(totalRecords));
+        }
+    } else {
+        for (int i = 0; i < fieldCount; i++) {
+            ds.deltaMinimums[i] = data[i][0];
+            ds.deltaMaximums[i] = data[i][0];
+            ds.deltaMeans[i] = data[i][0];
+            ds.deltaTotals[i] = data[i][0];
+        }
+    }
+
+    return ds;
+}
 
 DataStats generateTestFiles(const string& directory, const int fileCount, const int recordCount, const int fieldCount) {
     if (!checkDirectory(directory)) {
@@ -102,99 +186,14 @@ DataStats generateTestFiles(const string& directory, const int fileCount, const 
         }
 
         file.close();
-        cout << "Test file created: " << filename << endl;
+        printf("Test file created: %s\n", filename.c_str());
     }
 
-    DataStats ds(fieldCount);
-    ds.recordCount = totalRecords;
-
-    for (int i = 0; i < fieldCount; i++) {
-        ds.minimums[i] = *min_element(data[i].begin(), data[i].end());
-        ds.maximums[i] = *max_element(data[i].begin(), data[i].end());
-
-        double total = accumulate(data[i].begin(), data[i].end(), 0.0);
-        double mean = total / static_cast<double>(data[i].size());
-        ds.totals[i] = total;
-        ds.means[i] = mean;
-
-        vector<double> sumVec(totalRecords);
-        for (int j = 0; j < totalRecords; j++) {
-            sumVec[j] = pow(data[i][j] - mean, 2);
-        }
-        double sum = accumulate(sumVec.begin(), sumVec.end(), 0.0);
-        ds.stdDevs[i] = sqrt(sum / static_cast<double>(totalRecords));
-    }
-
-    if (totalRecords > 1) {
-        for (int i = 0; i < fieldCount; i++) {
-            double previous = data[i][0];
-            data[i][0] = fabs(data[i][1] - data[i][0]);
-
-            for (int j = 1; j < totalRecords; j++) {
-                double current = data[i][j];
-                data[i][j] = fabs(current - previous);
-                previous = current;
-            }
-        }
-
-        for (int i = 0; i < fieldCount; i++) {
-            ds.deltaMinimums[i] = *min_element(data[i].begin(), data[i].end());
-            ds.deltaMaximums[i] = *max_element(data[i].begin(), data[i].end());
-
-            double total = accumulate(data[i].begin(), data[i].end(), 0.0);
-            double mean = total / static_cast<double>(data[i].size());
-            ds.deltaTotals[i] = total;
-            ds.deltaMeans[i] = mean;
-
-            vector<double> sumVec(totalRecords);
-            for (int j = 0; j < totalRecords; j++) {
-                sumVec[j] = pow(data[i][j] - mean, 2);
-            }
-            double sum = accumulate(sumVec.begin(), sumVec.end(), 0.0);
-            ds.deltaStdDevs[i] = sqrt(sum / static_cast<double>(totalRecords));
-        }
-    } else {
-        for (int i = 0; i < fieldCount; i++) {
-            ds.deltaMinimums[i] = data[i][0];
-            ds.deltaMaximums[i] = data[i][0];
-            ds.deltaMeans[i] = data[i][0];
-            ds.deltaTotals[i] = data[i][0];
-        }
-    }
-
-    return ds;
-}
-
-void printDataStats(const DataStats& ds) {
-    cout << "DataStats:" << endl;
-    cout << "\tField Count: " << ds.fieldCount << endl;
-    cout << "\tRecord Count: " << ds.recordCount << endl;
-
-    auto printVector = [](const string& name, const vector<double>& vec) {
-        cout << name << ": ";
-        for (const auto& val : vec) {
-            cout << val << " ";
-        }
-        cout << endl;
-    };
-
-    printVector("\tMinimums", ds.minimums);
-    printVector("\tMaximums", ds.maximums);
-    printVector("\tTotals", ds.totals);
-    printVector("\tMeans", ds.means);
-    printVector("\tStandard Deviations", ds.stdDevs);
-
-    printVector("\tDelta Minimums", ds.deltaMinimums);
-    printVector("\tDelta Maximums", ds.deltaMaximums);
-    printVector("\tDelta Totals", ds.deltaTotals);
-    printVector("\tDelta Means", ds.deltaMeans);
-    printVector("\tDelta Standard Deviations", ds.deltaStdDevs);
-
-    cout << endl;
+    return newDataStats(data, totalRecords, fieldCount);
 }
 
 /*******************************************************************************
- TESTS  // TODO: add more test cases
+ TESTS
 *******************************************************************************/
 
 void testProcessInputFiles() {
