@@ -45,16 +45,16 @@ namespace {
     constexpr bool isVerbose = true;
     constexpr int storageCloseWaitMilli = 25;       // avoid "device is busy" error with rapid mount/unmount calls
 
-    constexpr size_t ramDiskSizeMb = 1000;          // make big enough to contain data
+    constexpr size_t ramDiskSizeMb = 5000;          // make big enough to contain data
     const string defaultWorkDir = "/tmp/.cds";
 
     constexpr size_t minFileCount = 1;
-    constexpr size_t minRecordCount = 25000;
-    constexpr size_t minFieldCount = 1000;
+    constexpr size_t minRecordCount = 1;
+    constexpr size_t minFieldCount = 1;
 
-    constexpr size_t maxFileCount = 1;
-    constexpr size_t maxRecordCount = 25000;        // too big and GPU/CPU summation discrepancies will appear!
-    constexpr size_t maxFieldCount = 1000;
+    constexpr size_t maxFileCount = 10;
+    constexpr size_t maxRecordCount = 10;
+    constexpr size_t maxFieldCount = 10;
 }
 
 /*******************************************************************************
@@ -261,6 +261,11 @@ int main() {
         }
     }
 
+    testAnalyzeData(1, 1000000, 3);
+    testAnalyzeData(2, 500000, 3);
+    testAnalyzeData(4, 250000, 3);
+
     printf("All tests completed successfully.\n");
     exit(EXIT_SUCCESS);
 }
+

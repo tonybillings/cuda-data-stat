@@ -29,7 +29,6 @@ __global__ void calculateMins(const double* data, const size_t recordCount, cons
     const unsigned int localIdx = threadIdx.x;
 
     sdataMins[localIdx] = DBL_MAX;
-    __syncthreads();
 
     if (globalIdxX < recordCount && globalIdxY < fieldCount) {
         sdataMins[localIdx] = data[globalIdxX * fieldCount + globalIdxY];
@@ -50,6 +49,37 @@ __global__ void calculateMins(const double* data, const size_t recordCount, cons
     }
 }
 
+__global__ void calculateDeltaMins(const double* data, const size_t recordCount, const size_t fieldCount, double* mins) {
+    extern __shared__ double sdataDeltaMins[];
+
+    const unsigned int globalIdxX = blockIdx.x * blockDim.x + threadIdx.x;
+    const unsigned int globalIdxY = blockIdx.y * blockDim.y + threadIdx.y;
+    const unsigned int localIdx = threadIdx.x;
+
+    sdataDeltaMins[localIdx] = DBL_MAX;
+
+    if (globalIdxX < recordCount && globalIdxY < fieldCount) {
+        const double localValue = data[globalIdxX * fieldCount + globalIdxY];
+        const double otherValue = (globalIdxX == 0) ? data[(globalIdxX + 1) * fieldCount + globalIdxY] : data[(globalIdxX - 1) * fieldCount + globalIdxY];
+        const double delta = fabs(localValue - otherValue);
+        sdataDeltaMins[localIdx] = delta;
+    } else {
+        return;
+    }
+    __syncthreads();
+
+    for (unsigned int s = blockDim.x / 2; s > 0; s >>= 1) {
+        if (localIdx < s) {
+            sdataDeltaMins[localIdx] = min(sdataDeltaMins[localIdx], sdataDeltaMins[localIdx + s]);
+        }
+        __syncthreads();
+    }
+
+    if (localIdx == 0) {
+        atomicMin(&mins[globalIdxY], sdataDeltaMins[0]);
+    }
+}
+
 __global__ void calculateMaxs(const double* data, const size_t recordCount, const size_t fieldCount,
     double* maxs) {
     extern __shared__ double sdataMaxs[];
@@ -59,7 +89,6 @@ __global__ void calculateMaxs(const double* data, const size_t recordCount, cons
     const unsigned int localIdx = threadIdx.x;
 
     sdataMaxs[localIdx] = DBL_MIN;
-    __syncthreads();
 
     if (globalIdxX < recordCount && globalIdxY < fieldCount) {
         sdataMaxs[localIdx] = data[globalIdxX * fieldCount + globalIdxY];
@@ -80,6 +109,37 @@ __global__ void calculateMaxs(const double* data, const size_t recordCount, cons
     }
 }
 
+__global__ void calculateDeltaMaxs(const double* data, const size_t recordCount, const size_t fieldCount, double* maxs) {
+    extern __shared__ double sdataDeltaMaxs[];
+
+    const unsigned int globalIdxX = blockIdx.x * blockDim.x + threadIdx.x;
+    const unsigned int globalIdxY = blockIdx.y * blockDim.y + threadIdx.y;
+    const unsigned int localIdx = threadIdx.x;
+
+    sdataDeltaMaxs[localIdx] = DBL_MIN;
+
+    if (globalIdxX < recordCount && globalIdxY < fieldCount) {
+        const double localValue = data[globalIdxX * fieldCount + globalIdxY];
+        const double otherValue = (globalIdxX == 0) ? data[(globalIdxX + 1) * fieldCount + globalIdxY] : data[(globalIdxX - 1) * fieldCount + globalIdxY];
+        const double delta = fabs(localValue - otherValue);
+        sdataDeltaMaxs[localIdx] = delta;
+    } else {
+        return;
+    }
+    __syncthreads();
+
+    for (unsigned int s = blockDim.x / 2; s > 0; s >>= 1) {
+        if (localIdx < s) {
+            sdataDeltaMaxs[localIdx] = max(sdataDeltaMaxs[localIdx], sdataDeltaMaxs[localIdx + s]);
+        }
+        __syncthreads();
+    }
+
+    if (localIdx == 0) {
+        atomicMax(&maxs[globalIdxY], sdataDeltaMaxs[0]);
+    }
+}
+
 __global__ void calculateTotals(const double* data, const size_t recordCount, const size_t fieldCount,
     double* totals) {
     extern __shared__ double sdataTotals[];
@@ -89,7 +149,6 @@ __global__ void calculateTotals(const double* data, const size_t recordCount, co
     const unsigned int localIdx = threadIdx.x;
 
     sdataTotals[localIdx] = 0.0;
-    __syncthreads();
 
     if (globalIdxX < recordCount && globalIdxY < fieldCount) {
         sdataTotals[localIdx] = data[globalIdxX * fieldCount + globalIdxY];
@@ -110,34 +169,34 @@ __global__ void calculateTotals(const double* data, const size_t recordCount, co
     }
 }
 
-__global__ void convertDataToDeltas(double* data, const size_t recordCount, const size_t fieldCount) {
+__global__ void calculateDeltaTotals(const double* data, const size_t recordCount, const size_t fieldCount, double* totals) {
+    extern __shared__ double sdataDeltaTotals[];
+
     const unsigned int globalIdxX = blockIdx.x * blockDim.x + threadIdx.x;
     const unsigned int globalIdxY = blockIdx.y * blockDim.y + threadIdx.y;
-    const unsigned int globalIdx = globalIdxX * fieldCount + globalIdxY;
+    const unsigned int localIdx = threadIdx.x;
 
-    double localValue;
-    double otherValue;
+    sdataDeltaTotals[localIdx] = 0.0;
+
     if (globalIdxX < recordCount && globalIdxY < fieldCount) {
-        localValue = data[globalIdx];
-        if (globalIdxX == 0)
-            otherValue = data[(globalIdxX + 1) * fieldCount + globalIdxY];
-        else
-            otherValue = data[(globalIdxX - 1) * fieldCount + globalIdxY];
+        const double localValue = data[globalIdxX * fieldCount + globalIdxY];
+        const double otherValue = (globalIdxX == 0) ? data[(globalIdxX + 1) * fieldCount + globalIdxY] : data[(globalIdxX - 1) * fieldCount + globalIdxY];
+        const double delta = fabs(localValue - otherValue);
+        sdataDeltaTotals[localIdx] = delta;
     } else {
         return;
     }
     __syncthreads();
 
-    data[globalIdx] = fabs(otherValue - localValue);
-}
+    for (unsigned int s = blockDim.x / 2; s > 0; s >>= 1) {
+        if (localIdx < s) {
+            sdataDeltaTotals[localIdx] += sdataDeltaTotals[localIdx + s];
+        }
+        __syncthreads();
+    }
 
-__global__ void convertDeltasToDeltasSquared(double* data, const size_t recordCount, const size_t fieldCount) {
-    const unsigned int globalIdxX = blockIdx.x * blockDim.x + threadIdx.x;
-    const unsigned int globalIdxY = blockIdx.y * blockDim.y + threadIdx.y;
-    const unsigned int globalIdx = globalIdxX * fieldCount + globalIdxY;
-
-    if (globalIdxX < recordCount && globalIdxY < fieldCount) {
-        data[globalIdx] = pow(data[globalIdx], 2);
+    if (localIdx == 0) {
+        atomicAdd(&totals[globalIdxY], sdataDeltaTotals[0]);
     }
 }
 
@@ -150,7 +209,6 @@ __global__ void calculateMeansStddevs(const double* data, const size_t recordCou
     const unsigned int localIdx = threadIdx.x;
 
     sdataStddev[localIdx] = 0.0;
-    __syncthreads();
 
     double val = 0.0;
     if (globalIdxX < recordCount && globalIdxY < fieldCount) {
@@ -181,6 +239,47 @@ __global__ void calculateMeansStddevs(const double* data, const size_t recordCou
     }
 }
 
+__global__ void calculateDeltaMeansStddevs(const double* data, const size_t recordCount, const size_t fieldCount, const double* totals, double* means, double* stdDevs) {
+    extern __shared__ double sdataDeltaStddev[];
+
+    const unsigned int globalIdxX = blockIdx.x * blockDim.x + threadIdx.x;
+    const unsigned int globalIdxY = blockIdx.y;
+    const unsigned int localIdx = threadIdx.x;
+
+    sdataDeltaStddev[localIdx] = 0.0;
+
+    double val = 0.0;
+    if (globalIdxX < recordCount && globalIdxY < fieldCount) {
+        double localValue = data[globalIdxX * fieldCount + globalIdxY];
+        double otherValue = (globalIdxX == 0) ? data[(globalIdxX + 1) * fieldCount + globalIdxY] : data[(globalIdxX - 1) * fieldCount + globalIdxY];
+        val = fabs(localValue - otherValue);
+    }
+    __syncthreads();
+
+    if (localIdx == 0) {
+        means[globalIdxY] = totals[globalIdxY] / static_cast<double>(recordCount);
+    }
+    __syncthreads();
+
+    if (globalIdxX < recordCount && globalIdxY < fieldCount) {
+        const double diff = val - means[globalIdxY];
+        sdataDeltaStddev[localIdx] = diff * diff;
+    }
+    __syncthreads();
+
+    for (unsigned int s = blockDim.x / 2; s > 0; s >>= 1) {
+        if (localIdx < s) {
+            sdataDeltaStddev[localIdx] += sdataDeltaStddev[localIdx + s];
+        }
+        __syncthreads();
+    }
+
+    if (localIdx == 0) {
+        atomicAdd(&stdDevs[globalIdxY], sdataDeltaStddev[0]);
+    }
+}
+
+
 /*******************************************************************************
  KERNEL WRAPPERS
 *******************************************************************************/
@@ -196,6 +295,16 @@ namespace {
             return true;
     }
 
+    bool runCalculateDeltaMins(dim3 grid, dim3 block, size_t sharedMemorySize, cudaStream_t stream, const double* data,
+    const size_t recordCount, const size_t fieldCount, double* mins) {
+        calculateDeltaMins<<<grid, block, sharedMemorySize, stream>>>(data, recordCount, fieldCount, mins);
+        if (const cudaError_t err = cudaGetLastError(); err != cudaSuccess) {
+            ERROR("calculateDeltaMins failed: %s", cudaGetErrorString(err));
+            return false;
+        }
+        return true;
+    }
+
     bool runCalculateMaxs(dim3 grid, dim3 block, size_t sharedMemorySize, cudaStream_t stream, const double* data,
         const size_t recordCount, const size_t fieldCount, double* maxs) {
             calculateMaxs<<<grid, block, sharedMemorySize, stream>>>(data, recordCount, fieldCount, maxs);
@@ -206,6 +315,16 @@ namespace {
             return true;
     }
 
+    bool runCalculateDeltaMaxs(dim3 grid, dim3 block, size_t sharedMemorySize, cudaStream_t stream, const double* data,
+    const size_t recordCount, const size_t fieldCount, double* maxs) {
+        calculateDeltaMaxs<<<grid, block, sharedMemorySize, stream>>>(data, recordCount, fieldCount, maxs);
+        if (const cudaError_t err = cudaGetLastError(); err != cudaSuccess) {
+            ERROR("calculateDeltaMaxs failed: %s", cudaGetErrorString(err));
+            return false;
+        }
+        return true;
+    }
+
     bool runCalculateTotals(dim3 grid, dim3 block, size_t sharedMemorySize, cudaStream_t stream, const double* data,
         const size_t recordCount, const size_t fieldCount, double* totals) {
             calculateTotals<<<grid, block, sharedMemorySize, stream>>>(data, recordCount, fieldCount, totals);
@@ -214,6 +333,16 @@ namespace {
                 return false;
             }
             return true;
+    }
+
+    bool runCalculateDeltaTotals(dim3 grid, dim3 block, size_t sharedMemorySize, cudaStream_t stream, const double* data,
+    const size_t recordCount, const size_t fieldCount, double* totals) {
+        calculateDeltaTotals<<<grid, block, sharedMemorySize, stream>>>(data, recordCount, fieldCount, totals);
+        if (const cudaError_t err = cudaGetLastError(); err != cudaSuccess) {
+            ERROR("calculateDeltaTotals failed: %s", cudaGetErrorString(err));
+            return false;
+        }
+        return true;
     }
 
     bool runCalculateMeansStddevs(dim3 grid, dim3 block, size_t sharedMemorySize, cudaStream_t stream,
@@ -227,11 +356,12 @@ namespace {
             return true;
     }
 
-    bool runConvertDataToDeltas(dim3 grid, dim3 block, size_t sharedMemorySize, cudaStream_t stream,
-        double *data, const size_t recordCount, const size_t fieldCount) {
-        convertDataToDeltas<<<grid, block, sharedMemorySize, stream>>>(data, recordCount, fieldCount);
+    bool runCalculateDeltaMeansStddevs(dim3 grid, dim3 block, size_t sharedMemorySize, cudaStream_t stream,
+    const double* data, const size_t recordCount, const size_t fieldCount, const double* totals,
+    double* means, double* stdDevs) {
+        calculateDeltaMeansStddevs<<<grid, block, sharedMemorySize, stream>>>(data, recordCount, fieldCount, totals, means, stdDevs);
         if (const cudaError_t err = cudaGetLastError(); err != cudaSuccess) {
-            ERROR("convertDataToDeltas failed: %s", cudaGetErrorString(err));
+            ERROR("calculateDeltaMeansStddevs failed: %s", cudaGetErrorString(err));
             return false;
         }
         return true;
@@ -435,18 +565,11 @@ bool calculateStats(const char *data, const size_t dataSize, const size_t thread
         return false;
     }
 
-    if (!runConvertDataToDeltas(grid, block, sharedMemSize, nullptr, dData, stats.recordCount, stats.fieldCount) ||
-        !synchronizeDevice()) {
-        freeMemory(11, dData, dMins, dMaxs, dTotals, dMeans, dStdDevs,
-            dDeltaMins, dDeltaMaxs, dDeltaTotals, dDeltaMeans, dDeltaStdDevs);
-        return false;
-    }
-
-    if (!runCalculateMins(grid, block, sharedMemSize, minStream, dData, stats.recordCount, stats.fieldCount, dDeltaMins) ||
-        !runCalculateMaxs(grid, block, sharedMemSize, maxStream, dData, stats.recordCount, stats.fieldCount, dDeltaMaxs) ||
-        !runCalculateTotals(grid, block, sharedMemSize, nullptr, dData, stats.recordCount, stats.fieldCount, dDeltaTotals) ||
+    if (!runCalculateDeltaMins(grid, block, sharedMemSize, minStream, dData, stats.recordCount, stats.fieldCount, dDeltaMins) ||
+        !runCalculateDeltaMaxs(grid, block, sharedMemSize, maxStream, dData, stats.recordCount, stats.fieldCount, dDeltaMaxs) ||
+        !runCalculateDeltaTotals(grid, block, sharedMemSize, nullptr, dData, stats.recordCount, stats.fieldCount, dDeltaTotals) ||
         !synchronizeDevice() ||
-        !runCalculateMeansStddevs(grid, block, sharedMemSize, nullptr, dData, stats.recordCount, stats.fieldCount, dDeltaTotals, dDeltaMeans, dDeltaStdDevs) ||
+        !runCalculateDeltaMeansStddevs(grid, block, sharedMemSize, nullptr, dData, stats.recordCount, stats.fieldCount, dDeltaTotals, dDeltaMeans, dDeltaStdDevs) ||
         !synchronizeDevice()) {
         freeMemory(11, dData, dMins, dMaxs, dTotals, dMeans, dStdDevs,
             dDeltaMins, dDeltaMaxs, dDeltaTotals, dDeltaMeans, dDeltaStdDevs);
@@ -457,7 +580,7 @@ bool calculateStats(const char *data, const size_t dataSize, const size_t thread
         hTotals[stats.fieldCount], hMeans[stats.fieldCount], hStdDevs[stats.fieldCount];
 
     double hDeltaMins[stats.fieldCount], hDeltaMaxs[stats.fieldCount],
-            hDeltaTotals[stats.fieldCount], hDeltaMeans[stats.fieldCount], hDeltaStdDevs[stats.fieldCount];
+        hDeltaTotals[stats.fieldCount], hDeltaMeans[stats.fieldCount], hDeltaStdDevs[stats.fieldCount];
 
     if (!copyFromDevice(hMins, dMins, statsSize, "hMins") ||
         !copyFromDevice(hMaxs, dMaxs, statsSize, "hMaxs") ||
