@@ -4,6 +4,7 @@
 
 #include "cds/storage.h"
 #include "cds/debug.h"
+#include "cds/cds.h"
 
 #include <iostream>
 #include <cstdlib>

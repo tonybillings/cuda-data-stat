@@ -132,6 +132,10 @@ bool analyzeData(const std::string& workingDir, DataStats& stats) {
     char* data = nullptr;
     size_t dataSize = 0;
     if (!mapData(dataFile, data, dataSize)) {
+        if (dataSize == 0) {
+            stats::reset();
+            return true;
+        }
         return false;
     }
 

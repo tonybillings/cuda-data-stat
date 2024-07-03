@@ -192,6 +192,11 @@ bool mapData(const string& filePath, char*& data, size_t& dataSize) {
     }
     dataSize = fileInfo.st_size;
 
+    if (dataSize == 0) {
+        close(fd);
+        return false;
+    }
+
     data = static_cast<char*>(mmap(nullptr, dataSize, PROT_READ, MAP_PRIVATE, fd, 0));
     if (data == MAP_FAILED) {
         ERROR("unable to map file: %s", strerror(errno));

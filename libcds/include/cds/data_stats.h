@@ -4,7 +4,6 @@
 #include <vector>
 #include <algorithm>
 #include <cmath>
-#include <cstdio>
 
 struct DataStats {
     size_t fieldCount = 0;

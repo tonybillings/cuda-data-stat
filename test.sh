@@ -1,39 +1,34 @@
 #!/bin/bash
 
+check_status() {
+    if [ $? -ne 0 ]; then
+        echo "$1 failed"
+        exit 1
+    fi
+}
+
 if [ -d "build" ]; then
-  sudo rm -rf build
+    sudo rm -rf build
 fi
 
 cmake -S . -B build
-
-if [ $? -ne 0 ]; then
-  echo "CMake configuration failed"
-  exit 1
-fi
+check_status "CMake configuration"
 
 cmake --build build
-
-if [ $? -ne 0 ]; then
-  echo "Build failed"
-  exit 1
-fi
+check_status "Build"
 
 cmake --build build --target storage_test
-if [ $? -ne 0 ]; then
-  echo "Build for storage_test failed"
-  exit 1
-fi
+check_status "Build for storage_test"
 
 cmake --build build --target service_test
-if [ $? -ne 0 ]; then
-  echo "Build for service_test failed"
-  exit 1
-fi
+check_status "Build for service_test"
 
 cd build/libcds
 sudo ctest
+check_status "Test"
 
-if [ $? -ne 0 ]; then
-  echo "Test failed"
-  exit 1
-fi
+cd ../../
+cmake --build build --target gui
+check_status "Go build"
+
+echo "All steps completed successfully"

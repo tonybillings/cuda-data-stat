@@ -16,9 +16,4 @@ bool appendData(const std::string& filePath, const char* data, size_t dataSize);
 bool mapData(const std::string& filePath, char*& data, size_t& dataSize);
 bool unmapData(char* data, size_t fileSize);
 
-extern "C" {
-    bool InitStorage(const char* workingDir, size_t sizeMb);
-    bool CloseStorage();
-}
-
 #endif // STORAGE_H
