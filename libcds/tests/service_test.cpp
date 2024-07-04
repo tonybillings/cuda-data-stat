@@ -206,10 +206,10 @@ void testProcessInputFiles() {
 
     assert(ProcessInputFiles());
 
-    int recordCount, fieldCount;
-    GetFieldAndRecordCount(&recordCount, &fieldCount);
-    assert(recordCount == 9);
+    int fieldCount, recordCount;
+    GetFieldAndRecordCount(&fieldCount, &recordCount);
     assert(fieldCount == 3);
+    assert(recordCount == 9);
 
     assert(CloseStorage());
 }
@@ -226,11 +226,11 @@ void testAnalyzeData(const int fileCount, const int recordCount, const int field
     assert(ProcessInputFiles());
     assert(AnalyzeData());
 
-    int totalRecordCount, actualFieldCount;
-    GetFieldAndRecordCount(&totalRecordCount, &actualFieldCount);
+    int actualFieldCount, totalRecordCount;
+    GetFieldAndRecordCount(&actualFieldCount, &totalRecordCount);
 
-    assert(totalRecordCount == fileCount * recordCount);
     assert(actualFieldCount == fieldCount);
+    assert(totalRecordCount == fileCount * recordCount);
 
     if (const DataStats actualStats = stats::get(); actualStats != expectedStats) {
         printDataStats(actualStats);

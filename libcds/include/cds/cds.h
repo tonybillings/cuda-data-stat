@@ -18,7 +18,7 @@ extern "C" {
 
     bool ProcessInputFiles();
     bool AnalyzeData();
-    void GetFieldAndRecordCount(int* recordCount, int* fieldCount);
+    void GetFieldAndRecordCount(int* fieldCount, int* recordCount);
     void GetStats(double* minimums, double* maximums, double* totals, double* means, double* stdDevs,
         double* deltaMinimums, double* deltaMaximums, double* deltaTotals, double* deltaMeans, double* deltaStdDevs);
 

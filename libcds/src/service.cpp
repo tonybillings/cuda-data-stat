@@ -80,6 +80,13 @@ bool processCsvFile(const string& filePath, vector<double>& data, DataStats& sta
     }
 
     data = move(fileData);
+
+    file.close();
+    if (remove(filePath.c_str()) != 0) {
+        ERROR("error deleting input file '%s': %s", filePath.c_str(), strerror(errno));
+        return false;
+    }
+
     return true;
 }
 
@@ -161,7 +168,7 @@ extern "C" {
             return false;
         }
 
-        DataStats ds;
+        DataStats ds = stats::get();
         if (!processInputFiles(workingDir, ds)) {
             return false;
         }
@@ -185,10 +192,10 @@ extern "C" {
         return true;
     }
 
-    void GetFieldAndRecordCount(int* recordCount, int* fieldCount) {
+    void GetFieldAndRecordCount(int* fieldCount, int* recordCount) {
         const DataStats ds = stats::get();
-        *recordCount = static_cast<int>(ds.recordCount);
         *fieldCount = static_cast<int>(ds.fieldCount);
+        *recordCount = static_cast<int>(ds.recordCount);
     }
 
     void GetStats(double* minimums, double* maximums, double* totals, double* means, double* stdDevs,

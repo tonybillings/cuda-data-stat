@@ -30,8 +30,8 @@ find_path(GCC_INCLUDE_DIR NAMES bits/c++config.h
 )
 
 configure_file(
-        ${CMAKE_SOURCE_DIR}/gocds/config_template.go.in
-        ${CMAKE_SOURCE_DIR}/gocds/config.go
+        ${CMAKE_SOURCE_DIR}/gocds/cds/config_template.go.in
+        ${CMAKE_SOURCE_DIR}/gocds/cds/config.go
         @ONLY
 )
 

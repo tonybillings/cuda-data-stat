@@ -31,4 +31,18 @@ cd ../../
 cmake --build build --target gui
 check_status "Go build"
 
+if [ ! -f gocds/cds/config.go ]; then
+    echo "config.go not found in gocds/cds directory"
+    exit 1
+fi
+
+cd gocds/_test
+sudo go get github.com/stretchr/testify/assert
+for file in *_test.go; do
+    if [ -f "$file" ]; then
+        sudo /bin/bash -c "export LD_LIBRARY_PATH=../../build/install/lib:$LD_LIBRARY_PATH; go test -p 1 -v $file"
+        check_status "Go test"
+    fi
+done
+
 echo "All steps completed successfully"

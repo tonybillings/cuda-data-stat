@@ -1,4 +1,4 @@
-package main
+package cds
 
 /*
 #include "cds/cds.h"

@@ -3,7 +3,7 @@ build
 cmake-build-debug
 
 gocds/.idea
-gocds/config.go
+gocds/cds/config.go
 
 libcds/.idea
 libcds/build

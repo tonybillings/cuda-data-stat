@@ -17,10 +17,9 @@ check_status "CMake configuration"
 cmake --build build --target gui
 check_status "Go build"
 
-if [ ! -f gocds/config.go ]; then
-    echo "config.go not found in gocds directory"
+if [ ! -f gocds/cds/config.go ]; then
+    echo "config.go not found in gocds/cds directory"
     exit 1
 fi
 
-cd build
-sudo /bin/bash -c "export LD_LIBRARY_PATH=install/lib:$LD_LIBRARY_PATH; ./gui/gocds"
+sudo /bin/bash -c "export LD_LIBRARY_PATH=build/install/lib:$LD_LIBRARY_PATH; build/gui/gocds"

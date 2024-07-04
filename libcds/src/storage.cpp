@@ -15,6 +15,8 @@
 #include <cerrno>
 #include <mutex>
 
+#include "cds/data_stats.h"
+
 /*******************************************************************************
  USINGS
 *******************************************************************************/
@@ -83,6 +85,11 @@ bool deleteWorkingDirectory(const string& workingDir) {
 
 bool createRamDisk(const string& workingDir, const size_t sizeMb) {
     if (!checkDirectory(workingDir)) {
+        return false;
+    }
+
+    if (sizeMb == 0) {
+        ERROR("storage size must be greater than zero megabytes");
         return false;
     }
 
@@ -256,6 +263,8 @@ extern "C" {
         if (!deleteWorkingDirectory(workingDir)) {
             return false;
         }
+
+        stats::reset();
 
         return true;
     }

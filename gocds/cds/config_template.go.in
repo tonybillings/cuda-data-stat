@@ -1,4 +1,4 @@
-package main
+package cds
 
 /*
 #cgo CFLAGS: -I@CMAKE_BINARY_DIR@/install/include -I@CXX_INCLUDE_DIR@ -I@GCC_INCLUDE_DIR@

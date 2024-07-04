@@ -1,4 +1,4 @@
-package main
+package cds
 
 /*
 #include "cds/cds.h"
@@ -18,14 +18,14 @@ func AnalyzeData() bool {
 }
 
 func GetFieldAndRecordCount() (int, int) {
-	var recordCount, fieldCount C.int
-	C.GetFieldAndRecordCount(&recordCount, &fieldCount)
-	return int(recordCount), int(fieldCount)
+	var fieldCount, recordCount C.int
+	C.GetFieldAndRecordCount(&fieldCount, &recordCount)
+	return int(fieldCount), int(recordCount)
 }
 
 func GetStats() *DataStats {
-	recordCount, fieldCount := GetFieldAndRecordCount()
-	if recordCount == 0 || fieldCount == 0 {
+	fieldCount, recordCount := GetFieldAndRecordCount()
+	if fieldCount == 0 || recordCount == 0 {
 		return NewDataStats(uint(fieldCount))
 	}
 
