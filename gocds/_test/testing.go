@@ -5,14 +5,14 @@ import (
 	"testing"
 )
 
-func BeginTest(t *testing.T) {
+func Begin(t *testing.T) {
 	if !cds.InitStorage(WorkingDir, 1024) {
 		t.Error("Failed to initialize storage")
 		t.FailNow()
 	}
 }
 
-func EndTest(t *testing.T) {
+func End(t *testing.T) {
 	if !cds.CloseStorage() {
 		t.Error("Failed to close storage")
 		t.FailNow()

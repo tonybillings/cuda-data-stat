@@ -7,6 +7,7 @@
 bool getVerbose();
 void setVerbose(bool value);
 std::string getLastError();
+void clearLastError();
 void setLastError(const std::string& msg);
 void setLastErrorFormatted(const char* format, ...);
 

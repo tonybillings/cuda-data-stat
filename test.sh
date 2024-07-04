@@ -17,6 +17,12 @@ check_status "CMake configuration"
 cmake --build build
 check_status "Build"
 
+cmake --build build --target debug_test
+check_status "Build for debug_test"
+
+cmake --build build --target datastats_test
+check_status "Build for datastats_test"
+
 cmake --build build --target storage_test
 check_status "Build for storage_test"
 

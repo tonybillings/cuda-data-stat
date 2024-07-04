@@ -24,7 +24,7 @@ using std::string;
 
 namespace {
     constexpr bool isVerbose = true;
-    const string defaultWorkDir = "/tmp/.cds";
+    const string defaultWorkDir = "/tmp/.cds_test";
     constexpr size_t ramDiskSizeMb = 10;
 }
 

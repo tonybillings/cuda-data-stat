@@ -27,7 +27,7 @@ namespace {
     mutex verboseMutex;
 
     string lastError;
-    char lastErrorBuffer[1024];
+    char lastErrorBuffer[1024] = {};
     mutex errorMutex;
 }
 
@@ -48,6 +48,10 @@ void setVerbose(const bool value) {
 string getLastError() {
     lock_guard lock(errorMutex);
     return lastError;
+}
+
+void clearLastError() {
+    setLastError("");
 }
 
 void setLastError(const string& msg) {

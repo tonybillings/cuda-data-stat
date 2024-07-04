@@ -42,7 +42,7 @@ namespace {
     constexpr int storageCloseWaitMilli = 5;       // avoid "device is busy" error with rapid mount/unmount calls
 
     constexpr size_t ramDiskSizeMb = 5000;          // make big enough to contain data
-    const string defaultWorkDir = "/tmp/.cds";
+    const string defaultWorkDir = "/tmp/.cds_test";
 
     constexpr size_t minFileCount = 1;
     constexpr size_t minRecordCount = 1;

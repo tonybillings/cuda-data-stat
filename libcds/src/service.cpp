@@ -87,6 +87,7 @@ bool processCsvFile(const string& filePath, vector<double>& data, DataStats& sta
         return false;
     }
 
+    clearLastError();
     return true;
 }
 
@@ -123,6 +124,7 @@ bool processInputFiles(const string& workingDir, DataStats& stats) {
         }
 
         closedir(dir);
+        clearLastError();
         return true;
     }
 
@@ -154,6 +156,7 @@ bool analyzeData(const std::string& workingDir, DataStats& stats) {
         return false;
     }
 
+    clearLastError();
     return true;
 }
 

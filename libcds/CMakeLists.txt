@@ -25,6 +25,12 @@ add_library(cds SHARED
 
 target_include_directories(cds PUBLIC ${PROJECT_SOURCE_DIR}/include)
 
+add_executable(debug_test
+        tests/debug_test.cpp
+)
+add_executable(datastats_test
+        tests/datastats_test.cpp
+)
 add_executable(storage_test
         tests/storage_test.cpp
 )
@@ -32,6 +38,8 @@ add_executable(service_test
         tests/service_test.cpp
 )
 
+target_link_libraries(debug_test PRIVATE cds)
+target_link_libraries(datastats_test PRIVATE cds)
 target_link_libraries(storage_test PRIVATE cds)
 target_link_libraries(service_test PRIVATE cds)
 
@@ -40,5 +48,7 @@ install(DIRECTORY ${PROJECT_SOURCE_DIR}/include/cds DESTINATION include)
 
 enable_testing()
 
+add_test(NAME DebugTest COMMAND debug_test)
+add_test(NAME DataStatsTest COMMAND datastats_test)
 add_test(NAME StorageTest COMMAND storage_test)
 add_test(NAME ServiceTest COMMAND service_test)

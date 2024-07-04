@@ -65,6 +65,8 @@ bool createWorkingDirectory(const string& workingDir) {
         ERROR("unable to create working directory '%s': %s", workingDir.c_str(), strerror(errno));
         return false;
     }
+
+    clearLastError();
     return true;
 }
 
@@ -79,6 +81,7 @@ bool deleteWorkingDirectory(const string& workingDir) {
         return false;
     }
 
+    clearLastError();
     PRINTLN("Successfully deleted the working directory.");
     return true;
 }
@@ -100,6 +103,7 @@ bool createRamDisk(const string& workingDir, const size_t sizeMb) {
         return false;
     }
 
+    clearLastError();
     PRINTLN("RAM disk created/mounted successfully.");
     return true;
 }
@@ -117,6 +121,7 @@ bool deleteRamDisk(const string& workingDir) {
         return false;
     }
 
+    clearLastError();
     PRINTLN("Successfully deleted the RAM disk.");
     return true;
 }
@@ -136,6 +141,7 @@ bool createDirectoryStructure(const string& workingDir) {
         }
     }
 
+    clearLastError();
     PRINTLN("Directory structure created successfully.");
     return true;
 }
@@ -154,6 +160,7 @@ bool createSparseFile(const string& workingDir) {
     }
 
     close(fd);
+    clearLastError();
     return true;
 }
 
@@ -181,6 +188,7 @@ bool appendData(const string& filePath, const char* data, const size_t dataSize)
         return false;
     }
 
+    clearLastError();
     return true;
 }
 
@@ -212,6 +220,7 @@ bool mapData(const string& filePath, char*& data, size_t& dataSize) {
     }
 
     close(fd);
+    clearLastError();
     return true;
 }
 
@@ -220,6 +229,8 @@ bool unmapData(char* data, const size_t fileSize) {
         ERROR("unable to unmap file: %s", strerror(errno));
         return false;
     }
+
+    clearLastError();
     return true;
 }
 
